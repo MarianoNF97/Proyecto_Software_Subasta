@@ -1,0 +1,18 @@
+## Visual Studio / .NET Build Artifacts
+bin/
+obj/
+*.user
+*.userosscache
+*.sln.docstates
+.vs/
+TestResults/
+
+## User-specific files
+*.rsuser
+*.suo
+*.userprefs
+
+## Database / Local data
+*.db
+*.sqlite
+appsettings.Development.json

@@ -1,0 +1,86 @@
+﻿using SubastaYa.Application.DTOs;
+using SubastaYa.Application.Features.Auctions.Commands;
+using SubastaYa.Application.Interfaces;
+using SubastaYa.Application.Interfaces.Repositories;
+using SubastaYa.Application.Services;
+using SubastaYa.Domain.Entities;
+
+namespace SubastaYa.Application.Features.Auctions.Commands.Handlers;
+
+/// <summary>
+/// Handler responsable ÚNICAMENTE de orquestar el registro de pujas.
+/// Delega lógica específica a servicios de dominio.
+/// </summary>
+public class PlaceBidHandler : ICommandHandler<PlaceBidCommand, BidResponseDto>
+{
+    private readonly IAuctionRepository _auctionRepository;
+    private readonly IBidRepository _bidRepository;
+    private readonly IBidValidationService _bidValidationService;
+    private readonly IBidPaymentService _bidPaymentService;
+    private readonly IAntiSnipingService _antiSnipingService;
+    private readonly IUnitOfWork _unitOfWork;
+
+    public PlaceBidHandler(
+        IAuctionRepository auctionRepository,
+        IBidRepository bidRepository,
+        IBidValidationService bidValidationService,
+        IBidPaymentService bidPaymentService,
+        IAntiSnipingService antiSnipingService,
+        IUnitOfWork unitOfWork)
+    {
+        _auctionRepository = auctionRepository;
+        _bidRepository = bidRepository;
+        _bidValidationService = bidValidationService;
+        _bidPaymentService = bidPaymentService;
+        _antiSnipingService = antiSnipingService;
+        _unitOfWork = unitOfWork;
+    }
+
+    public async Task<BidResponseDto> HandleAsync(PlaceBidCommand command, CancellationToken cancellationToken = default)
+    {
+        using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            // 1. Validar puja (incluye validación de fondos)
+            await _bidValidationService.ValidateBidAsync(command.AuctionId, command.BuyerId, command.Amount, cancellationToken);
+
+            // 2. Procesar pagos (retención y liberación)
+            await _bidPaymentService.ProcessBidPaymentAsync(command.AuctionId, command.BuyerId, command.Amount, cancellationToken);
+
+            // 3. Registrar la puja
+            var ahoraUtc = DateTime.UtcNow;
+            var newBid = new Puja
+            {
+                subasta_id = command.AuctionId,
+                comprador_id = command.BuyerId,
+                monto = command.Amount,
+                fecha_puja = ahoraUtc
+            };
+            _bidRepository.Add(newBid);
+
+            // 4. Aplicar regla anti-sniping
+            bool extended = await _antiSnipingService.ApplyAntiSnipingRuleAsync(command.AuctionId, command.BuyerId, cancellationToken);
+
+            // 5. Obtener estado final
+            var subasta = await _auctionRepository.GetByIdWithBidsAsync(command.AuctionId, cancellationToken);
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            return new BidResponseDto
+            {
+                Success = true,
+                Message = "Puja registrada correctamente.",
+                NewAmount = command.Amount,
+                TimeExtended = extended,
+                NewEndDate = subasta?.fecha_fin ?? DateTime.UtcNow
+            };
+        }
+        catch (Exception)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}

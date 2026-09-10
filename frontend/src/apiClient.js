@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 
 // Instancia base de Axios
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5094/api',
 });
 
 // Interceptor de peticiones (Request)

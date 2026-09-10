@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using SubastaYa.Application.DTOs;
 using SubastaYa.Application.Features.Auctions.Commands;
 using SubastaYa.Application.Features.Auctions.Commands.Handlers;
@@ -35,6 +37,7 @@ public class AuctionsController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost]
     public async Task<ActionResult<AuctionResponseDto>> Create(
         [FromBody] CreateAuctionCommand command,
@@ -45,6 +48,7 @@ public class AuctionsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
+    [Authorize]
     [HttpPost("bids")]
     public async Task<ActionResult<BidResponseDto>> PlaceBid(
         [FromBody] PlaceBidCommand command,
@@ -53,5 +57,13 @@ public class AuctionsController : ControllerBase
     {
         var result = await handler.HandleAsync(command, cancellationToken);
         return Ok(result);
+    }
+
+    private int GetCurrentUserId()
+    {
+        var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? User.FindFirst("sub")?.Value;
+
+        return int.Parse(claim!);
     }
 }

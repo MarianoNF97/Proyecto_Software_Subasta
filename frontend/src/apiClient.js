@@ -3,37 +3,46 @@ import { toast } from 'sonner';
 
 // Instancia base de Axios
 const apiClient = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
 });
 
-// Interceptor global de respuestas
+// Interceptor de peticiones (Request)
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token'); // Asumiendo que el token se guarda bajo esta clave
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Interceptor de respuestas (Response)
 apiClient.interceptors.response.use(
   (response) => {
-    // Retornamos la respuesta tal cual si fue exitosa
     return response;
   },
   (error) => {
-    // Verificamos si el error tiene una respuesta del servidor
     if (error.response) {
       const { status, data } = error.response;
 
-      // Interceptamos los códigos HTTP 400, 404 y 409
-      if ([400, 404, 409].includes(status)) {
-        // Extraemos el mensaje de error o usamos uno genérico
+      if (status === 401) {
+        // Redirigir a /login en caso de error 401
+        window.location.href = '/login';
+      } else if ([400, 404, 409].includes(status)) {
+        // Mostrar notificación de error genérica
         const errorMessage = data?.error || 'Ha ocurrido un error inesperado';
-        
-        // Mostramos la notificación usando Sonner
         toast.error(errorMessage);
       }
     } else {
-      // Manejo por si el servidor está caído o hay problemas de red
       toast.error('Error de conexión con el servidor');
     }
 
-    // Propagamos el error para quien haya hecho la llamada pueda manejarlo también si lo desea
     return Promise.reject(error);
   }
 );
 
 export default apiClient;
-

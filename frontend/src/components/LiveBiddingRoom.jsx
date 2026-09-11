@@ -1,37 +1,62 @@
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
 import { toast } from 'sonner';
 import useCountdown from '../hooks/useCountdown';
 import apiClient from '../apiClient';
 
-const LiveBiddingRoom = ({ auction, wallet, serverTime, userId }) => {
-  // Estado local sincronizado con los props iniciales (por si SignalR los actualiza)
-  const [currentPrice, setCurrentPrice] = useState(auction?.precio_actual || 0);
-  const [endDate, setEndDate] = useState(auction?.fecha_fin || null);
+const LiveBiddingRoom = ({ wallet, userId }) => {
+  const { id } = useParams();
+  
+  // 1. Estado de la subasta (obtenida del backend)
+  const [auction, setAuction] = useState(null);
+  const [isLoadingAuction, setIsLoadingAuction] = useState(true);
+
+  // 2. Estado interactivo (Actualizado por SignalR)
+  const [currentPrice, setCurrentPrice] = useState(0);
+  const [endDate, setEndDate] = useState(null);
   const [bidsHistory, setBidsHistory] = useState([]);
   const [latestBidderId, setLatestBidderId] = useState(null);
-
-  // Desestructuración de datos inmutables de la subasta
-  const { imagen, titulo, descripcion, categoria, incremento_minimo, estado } = auction || {};
-  const availableBalance = wallet?.availableBalance || 0;
-
-  // Temporizador utilizando el Custom Hook optimizado (escucha los cambios de endDate)
-  const timeLeft = useCountdown(endDate, serverTime);
-  const isEnded = timeLeft === 0 || estado === 'CERRADA';
-  const isEndingSoon = timeLeft > 0 && timeLeft < 60;
+  const [isBidding, setIsBidding] = useState(false);
 
   // Consola de puja
-  const suggestedBid = currentPrice + (incremento_minimo || 0);
-  const [bidAmount, setBidAmount] = useState(suggestedBid);
+  const { imageUrl, title, description, categoryName, minIncrement, status } = auction || {};
+  const suggestedBid = currentPrice + (minIncrement || 0);
+  const [bidAmount, setBidAmount] = useState(0);
 
-  // Actualizar input sugerido cuando cambia el precio actual
+  // ==========================================
+  // FETCH DE LA SUBASTA (Independiente)
+  // ==========================================
+  useEffect(() => {
+    let isMounted = true;
+    const fetchAuction = async () => {
+      try {
+        const response = await apiClient.get(`/auctions/${id}`);
+        if (isMounted) {
+          setAuction(response.data);
+          setCurrentPrice(response.data.currentPrice);
+          setEndDate(response.data.endDate);
+        }
+      } catch (error) {
+        console.error('Error fetching auction:', error);
+      } finally {
+        if (isMounted) setIsLoadingAuction(false);
+      }
+    };
+    fetchAuction();
+    return () => { isMounted = false; };
+  }, [id]);
+
   useEffect(() => {
     setBidAmount(suggestedBid);
   }, [suggestedBid]);
 
-  // ======= INTEGRACIÓN DE SIGNALR =======
+  // ==========================================
+  // INTEGRACIÓN DE SIGNALR
+  // ==========================================
   useEffect(() => {
-    // La URL debe coincidir con el hub en tu backend (ej. /auctionHub o /hubs/auction)
+    if (!auction) return; // Esperar a que exista la subasta
+
     const hubUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5094/api').replace('/api', '/auctionHub');
     
     const connection = new HubConnectionBuilder()
@@ -44,66 +69,68 @@ const LiveBiddingRoom = ({ auction, wallet, serverTime, userId }) => {
       try {
         await connection.start();
         console.log('✅ Conectado a SignalR - Sala en Vivo');
-        
-        // Si tu backend requiere unirse a un "grupo" de subasta específica:
-        // await connection.invoke('JoinAuctionGroup', auction.id);
+        // Unirse al grupo específico de esta subasta
+        await connection.invoke('JoinAuctionGroup', id.toString());
       } catch (err) {
         console.error('❌ Error al conectar a SignalR:', err);
       }
     };
 
-    // Escuchar el evento de nueva puja (el nombre del evento debe coincidir con backend)
+    startConnection();
+
     connection.on('ReceiveNewBid', (newBid) => {
-      // newBid esperado: { amount: 4000000, userId: 2, time: "2026-09-10T...", newEndDate: "2026-..." }
-      
+      console.log('📬 Nueva puja recibida:', newBid);
       setCurrentPrice(newBid.amount);
       setLatestBidderId(newBid.userId);
       
-      // Si el anti-sniping extendió el tiempo, lo actualizamos y useCountdown hace el resto
+      // Agregar al inicio del historial
+      setBidsHistory(prev => [{
+        userId: newBid.userId,
+        amount: newBid.amount,
+        time: newBid.timestamp || new Date().toISOString()
+      }, ...prev]);
+      
       if (newBid.newEndDate) {
         setEndDate(newBid.newEndDate);
       }
-
-      // Agregar al historial local sin recargar (se muestra primero)
-      setBidsHistory(prev => [newBid, ...prev]);
-
-      // Notificaciones condicionales
-      if (newBid.userId !== userId) {
-        toast.warning(`¡Te han superado con una oferta de $${newBid.amount}!`);
-      }
     });
 
-    startConnection();
-
     return () => {
-      connection.off('ReceiveNewBid');
-      connection.stop();
+      if (connection.state === 'Connected') {
+        connection.invoke('LeaveAuctionGroup', id.toString()).catch(console.error);
+        connection.stop();
+      }
     };
-  }, [userId]);
-  // ======================================
+  }, [auction?.id, id]);
+
+  // ==========================================
+  // LÓGICA DE NEGOCIO Y RENDERIZADO
+  // ==========================================
+  const availableBalance = wallet?.availableBalance || 0;
+  
+  // Utilizamos el tiempo local como serverTime fallback
+  const timeLeft = useCountdown(endDate, new Date().toISOString());
+  // Asumimos que el backend retorna "Activa" o "Cerrada", o evaluamos el tiempo
+  const isEnded = timeLeft === 0 || status === 'Cerrada' || status === 'CERRADA';
+  const isEndingSoon = timeLeft > 0 && timeLeft < 60;
 
   const hasInsufficientFunds = bidAmount > availableBalance;
-  const isBidTooLow = bidAmount < suggestedBid;
-  const [isBidding, setIsBidding] = useState(false);
-  const isButtonDisabled = isEnded || hasInsufficientFunds || isBidTooLow || isBidding;
+  const isButtonDisabled = isEnded || hasInsufficientFunds || bidAmount < suggestedBid || isBidding;
 
   const handleBidSubmit = async (e) => {
     e.preventDefault();
     if (isButtonDisabled) return;
-    
+
     setIsBidding(true);
     try {
-      // POST real a la API, que a su vez dispara SignalR desde el backend
-      // await apiClient.post(`/auctions/${auction.id}/bids`, { amount: bidAmount });
+      const response = await apiClient.post(`/auctions/${id}/bids`, { amount: bidAmount });
       
-      // Simulamos un breve delay de red
-      await new Promise(resolve => setTimeout(resolve, 600));
-      console.log('Enviando oferta por:', bidAmount);
-      // Opcional: mostrar toast de éxito local, aunque SignalR avisará
-      // toast.success("Oferta enviada exitosamente");
+      if (response.status === 200 || response.status === 201 || response.status === 204) {
+        toast.success("Oferta enviada exitosamente");
+      }
     } catch (error) {
       console.error('Error al pujar:', error);
-      toast.error('No se pudo procesar la oferta');
+      // Confiamos en el interceptor global de Axios para mostrar los Toasts de error (ej: 409 Conflict)
     } finally {
       setIsBidding(false);
     }
@@ -124,7 +151,20 @@ const LiveBiddingRoom = ({ auction, wallet, serverTime, userId }) => {
     }).format(value);
   };
 
-  if (!auction) return <div className="p-8 text-center">Cargando subasta...</div>;
+  if (isLoadingAuction) {
+    return (
+      <div className="flex justify-center items-center py-40">
+        <svg className="animate-spin h-12 w-12 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </div>
+    );
+  }
+
+  if (!auction) {
+    return <div className="p-8 text-center text-xl text-gray-500 font-semibold">Subasta no encontrada</div>;
+  }
 
   return (
     <div className="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -134,20 +174,20 @@ const LiveBiddingRoom = ({ auction, wallet, serverTime, userId }) => {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="relative h-96 w-full bg-gray-100">
             <img 
-              src={imagen || 'https://via.placeholder.com/800x600?text=Subasta'} 
-              alt={titulo} 
+              src={imageUrl || 'https://via.placeholder.com/800x600?text=Subasta'} 
+              alt={title} 
               className="w-full h-full object-cover"
             />
             <span className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-4 py-2 rounded-lg text-sm font-bold text-gray-800 shadow-sm uppercase tracking-wider">
-              {categoria}
+              {categoryName}
             </span>
           </div>
           
           <div className="p-8">
-            <h1 className="text-3xl font-extrabold text-gray-900 mb-4 leading-tight">{titulo}</h1>
+            <h1 className="text-3xl font-extrabold text-gray-900 mb-4 leading-tight">{title}</h1>
             <h2 className="text-lg font-semibold text-gray-800 mb-2 border-b pb-2">Descripción del Lote</h2>
             <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">
-              {descripcion || 'No hay descripción disponible para este lote.'}
+              {description || 'No hay descripción disponible para este lote.'}
             </p>
           </div>
         </div>
@@ -222,7 +262,7 @@ const LiveBiddingRoom = ({ auction, wallet, serverTime, userId }) => {
                   value={bidAmount}
                   onChange={(e) => setBidAmount(Number(e.target.value))}
                   min={suggestedBid}
-                  step={incremento_minimo || 1}
+                  step={minIncrement || 1}
                   disabled={isEnded}
                   className="w-full pl-8 pr-4 py-4 rounded-xl border border-gray-200 text-xl font-bold text-gray-800 bg-gray-50 focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all disabled:opacity-50"
                 />
@@ -265,4 +305,5 @@ const LiveBiddingRoom = ({ auction, wallet, serverTime, userId }) => {
   );
 };
 
+export default LiveBiddingRoom;
 export default LiveBiddingRoom;

@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using SubastaYa.Api.Middlewares;
 using SubastaYa.Api.Workers;
+using SubastaYa.Api.Hubs;
 using SubastaYa.Application.Common.Interfaces;
 using SubastaYa.Application.Features.Auctions.Commands.Handlers;
 using SubastaYa.Application.Features.Auctions.Queries.Handlers;
@@ -19,14 +20,14 @@ using SubastaYa.Infrastructure.Persistence.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Cadena de conexi髇 y DbContext
+// 1. Cadena de conexi贸n y DbContext
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("Cadena de conexi髇 'DefaultConnection' no encontrada.");
+    ?? throw new InvalidOperationException("Cadena de conexi贸n 'DefaultConnection' no encontrada.");
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 
-// 2. Configuraci髇 de ASP.NET Core Identity
+// 2. Configuraci贸n de ASP.NET Core Identity
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
 {
     options.Password.RequireDigit = false;
@@ -42,13 +43,13 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
-// 3. Configuraci髇 de Autenticaci髇 JWT y validaci髇 Fail-Fast
+// 3. Configuraci贸n de Autenticaci贸n JWT y validaci贸n Fail-Fast
 var jwtSection = builder.Configuration.GetSection("JwtSettings");
 var secret = jwtSection["Secret"];
 
 if (string.IsNullOrWhiteSpace(secret) || secret.Length < 32)
 {
-    throw new InvalidOperationException("Configuraci髇 inv醠ida: 'JwtSettings:Secret' no fue configurado o tiene una longitud menor a 32 caracteres.");
+    throw new InvalidOperationException("Configuraci贸n inv谩lida: 'JwtSettings:Secret' no fue configurado o tiene una longitud menor a 32 caracteres.");
 }
 
 var secretKey = Encoding.UTF8.GetBytes(secret);
@@ -76,7 +77,7 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
-// 4. Inyecci髇 de Repositorios (SRP) y Unit of Work
+// 4. Inyecci贸n de Repositorios (SRP) y Unit of Work
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IAuctionRepository, AuctionRepository>();
 builder.Services.AddScoped<IBidRepository, BidRepository>();
@@ -84,7 +85,7 @@ builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
-// 5. Inyecci髇 de Servicios de Dominio (SRP)
+// 5. Inyecci贸n de Servicios de Dominio (SRP)
 builder.Services.AddScoped<IBidWinnerService, BidWinnerService>();
 builder.Services.AddScoped<IBidValidationService, BidValidationService>();
 builder.Services.AddScoped<IBidPaymentService, BidPaymentService>();
@@ -92,32 +93,33 @@ builder.Services.AddScoped<IAntiSnipingService, AntiSnipingService>();
 builder.Services.AddScoped<IAuctionClosureService, AuctionClosureService>();
 builder.Services.AddScoped<IDepositService, DepositService>();
 
-// 6. Inyecci髇 de Handlers CQRS (Auctions)
+// 6. Inyecci贸n de Handlers CQRS (Auctions)
 builder.Services.AddScoped<GetAuctionsHandler>();
 builder.Services.AddScoped<GetAuctionByIdHandler>();
 builder.Services.AddScoped<CreateAuctionHandler>();
 builder.Services.AddScoped<PlaceBidHandler>();
 builder.Services.AddScoped<CloseExpiredAuctionsHandler>();
 
-// 7. Inyecci髇 de Handlers CQRS (Wallets)
+// 7. Inyecci贸n de Handlers CQRS (Wallets)
 builder.Services.AddScoped<GetWalletBalanceHandler>();
 builder.Services.AddScoped<GetWalletTransactionsHandler>();
 builder.Services.AddScoped<DepositFundsHandler>();
 
-// 8. Background Worker (Cierre autom醫ico de subastas)
+// 8. Background Worker (Cierre autom谩tico de subastas)
 builder.Services.AddHostedService<AuctionClosingWorker>();
 
 // 9. Controladores, Swagger con soporte para Bearer Token y CORS
 builder.Services.AddControllers();
+builder.Services.AddSignalR(); // INYECCION DE SIGNALR
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "SubastaYa API", Version = "v1" });
 
-    // Habilita el bot髇 Authorize en Swagger para probar con tokens JWT
+    // Habilita el bot贸n Authorize en Swagger para probar con tokens JWT
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "Encabezado de autorizaci髇 JWT usando el esquema Bearer. Ejemplo: 'Bearer {token}'",
+        Description = "Encabezado de autorizaci贸n JWT usando el esquema Bearer. Ejemplo: 'Bearer {token}'",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey,
@@ -165,10 +167,12 @@ app.UseHttpsRedirection();
 
 app.UseCors("AllowAll");
 
-// Autenticaci髇 siempre antes de Autorizaci髇
+// Autenticaci贸n siempre antes de Autorizaci贸n
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<AuctionHub>("/auctionHub"); 
 
 app.Run();
+

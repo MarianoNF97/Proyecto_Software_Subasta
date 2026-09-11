@@ -2,10 +2,10 @@ import React from 'react';
 import useCountdown from '../hooks/useCountdown';
 
 const AuctionCard = ({ subasta }) => {
-  const { imagen, titulo, categoria, precio_actual, cantidad_pujas, fecha_fin, server_time } = subasta;
+  const { imageUrl, title, categoryName, currentPrice, totalBids, endDate } = subasta;
   
   // Uso del Custom Hook para mantener el componente limpio
-  const timeLeft = useCountdown(fecha_fin, server_time);
+  const timeLeft = useCountdown(endDate);
 
   const formatTime = (seconds) => {
     if (seconds <= 0) return 'Subasta finalizada';
@@ -37,32 +37,32 @@ const AuctionCard = ({ subasta }) => {
       {/* Mitad superior: Imagen y Categoría (Badge flotante) */}
       <div className="relative h-56 w-full bg-gray-100">
         <img 
-          src={imagen || 'https://via.placeholder.com/400x300?text=Subasta+Sin+Imagen'} 
-          alt={titulo} 
+          src={imageUrl || 'https://via.placeholder.com/400x300?text=Subasta+Sin+Imagen'} 
+          alt={title} 
           className="w-full h-full object-cover"
         />
         <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg text-xs font-bold text-gray-800 shadow-sm uppercase tracking-wider">
-          {categoria}
+          {categoryName}
         </span>
       </div>
 
       {/* Mitad inferior: Título y Ofertas */}
       <div className="flex flex-col p-5 flex-grow">
         <h3 className="text-lg font-bold text-gray-900 line-clamp-2 mb-4 leading-tight">
-          {titulo}
+          {title}
         </h3>
         
         <div className="flex justify-between items-end mt-auto pt-2">
           <div className="flex flex-col">
             <span className="text-xs text-gray-500 font-medium mb-1">Oferta actual</span>
             <span className="text-2xl font-black text-blue-600 leading-none">
-              {formatCurrency(precio_actual)}
+              {formatCurrency(currentPrice)}
             </span>
           </div>
           <div className="flex flex-col items-end">
             <span className="text-xs text-gray-500 font-medium mb-1">Pujas</span>
             <span className="text-sm font-bold text-gray-700 bg-gray-100 px-2.5 py-1 rounded-md">
-              {cantidad_pujas}
+              {totalBids}
             </span>
           </div>
         </div>

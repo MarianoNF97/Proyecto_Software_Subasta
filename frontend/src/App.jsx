@@ -11,6 +11,7 @@ import LiveBiddingRoom from './components/LiveBiddingRoom';
 import ProtectedRoute from './components/ProtectedRoute';
 import MainLayout from './components/MainLayout';
 import LoginForm from './components/LoginForm';
+import RegisterForm from './components/RegisterForm';
 import apiClient from './apiClient';
 
 function App() {
@@ -68,6 +69,7 @@ function App() {
         <Routes>
           {/* Rutas Públicas sin Layout */}
           <Route path="/login" element={<LoginForm />} />
+          <Route path="/register" element={<RegisterForm />} />
 
           {/* Rutas dentro de MainLayout */}
           <Route element={<MainLayout />}>

@@ -10,6 +10,7 @@ import LiveBiddingRoom from './components/LiveBiddingRoom';
 
 import ProtectedRoute from './components/ProtectedRoute';
 import MainLayout from './components/MainLayout';
+import LoginForm from './components/LoginForm';
 import apiClient from './apiClient';
 
 function App() {
@@ -19,18 +20,23 @@ function App() {
     availableBalance: 0
   });
 
-  const userId = 1; // Hardcodeado por ahora hasta tener el contexto de Auth
+  const getUserIdFromToken = () => {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return parseInt(payload.sub, 10);
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const userId = getUserIdFromToken();
 
   const fetchMetrics = async () => {
     try {
       const token = localStorage.getItem('token');
-      if (!token) return; // No cargar saldos si no estamos logueados
-      
-      // MOCK para poder probar las vistas protegidas sin que el backend nos eche con un 401
-      if (token === 'fake-jwt-token') {
-        setMetrics({ totalBalance: 10000, lockedBalance: 2000, availableBalance: 8000 });
-        return;
-      }
+      if (!token || !userId) return; 
 
       const response = await apiClient.get(`/wallets/${userId}`);
       setMetrics(response.data);
@@ -61,29 +67,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           {/* Rutas Públicas sin Layout */}
-          <Route path="/login" element={
-            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-gray-800">
-              <h1 className="text-4xl font-bold mb-4 text-blue-600">SubastaYa</h1>
-              <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md flex flex-col items-center">
-                <h2 className="text-2xl font-semibold mb-6">Iniciar Sesión</h2>
-                <p className="mb-8 text-gray-500 text-center">Simulación de Login para probar el enrutamiento protegido.</p>
-                
-                <button 
-                  onClick={() => {
-                    localStorage.setItem('token', 'fake-jwt-token');
-                    window.location.href = '/';
-                  }}
-                  className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium shadow hover:bg-blue-700 transition-colors mb-4"
-                >
-                  Ingresar (Crear Token de Prueba)
-                </button>
-                
-                <a href="/" className="text-blue-500 hover:text-blue-700 font-medium">
-                  Volver al Catálogo
-                </a>
-              </div>
-            </div>
-          } />
+          <Route path="/login" element={<LoginForm />} />
 
           {/* Rutas dentro de MainLayout */}
           <Route element={<MainLayout />}>

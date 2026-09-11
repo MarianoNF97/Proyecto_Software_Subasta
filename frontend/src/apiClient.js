@@ -30,8 +30,13 @@ apiClient.interceptors.response.use(
       const { status, data } = error.response;
 
       if (status === 401) {
-        // Redirigir a /login en caso de error 401
-        window.location.href = '/login';
+        // Token inválido o expirado, lo eliminamos
+        localStorage.removeItem('token');
+        
+        // Redirigir a /login en caso de error 401, evitando bucle infinito si ya estamos en /login
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
       } else if ([400, 404, 409].includes(status)) {
         // Mostrar notificación de error genérica
         const errorMessage = data?.error || 'Ha ocurrido un error inesperado';

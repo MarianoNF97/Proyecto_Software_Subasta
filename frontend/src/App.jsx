@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'sonner';
+
 import WalletMetrics from './components/WalletMetrics';
 import DepositForm from './components/DepositForm';
 import AuctionCard from './components/AuctionCard';
 import CreateAuctionForm from './components/CreateAuctionForm';
 import LiveBiddingRoom from './components/LiveBiddingRoom';
+
+import ProtectedRoute from './components/ProtectedRoute';
+import MainLayout from './components/MainLayout';
 import apiClient from './apiClient';
 
 function App() {
@@ -18,6 +23,15 @@ function App() {
 
   const fetchMetrics = async () => {
     try {
+      const token = localStorage.getItem('token');
+      if (!token) return; // No cargar saldos si no estamos logueados
+      
+      // MOCK para poder probar las vistas protegidas sin que el backend nos eche con un 401
+      if (token === 'fake-jwt-token') {
+        setMetrics({ totalBalance: 10000, lockedBalance: 2000, availableBalance: 8000 });
+        return;
+      }
+
       const response = await apiClient.get(`/wallets/${userId}`);
       setMetrics(response.data);
     } catch (error) {
@@ -43,35 +57,85 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen p-8 text-gray-900">
-      <header className="max-w-6xl mx-auto mb-8">
-        <h1 className="text-3xl font-bold">SubastaYa</h1>
-        <p className="text-gray-500 mt-2">Plataforma de Subastas en Tiempo Real</p>
-      </header>
+    <>
+      <BrowserRouter>
+        <Routes>
+          {/* Rutas Públicas sin Layout */}
+          <Route path="/login" element={
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-gray-800">
+              <h1 className="text-4xl font-bold mb-4 text-blue-600">SubastaYa</h1>
+              <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md flex flex-col items-center">
+                <h2 className="text-2xl font-semibold mb-6">Iniciar Sesión</h2>
+                <p className="mb-8 text-gray-500 text-center">Simulación de Login para probar el enrutamiento protegido.</p>
+                
+                <button 
+                  onClick={() => {
+                    localStorage.setItem('token', 'fake-jwt-token');
+                    window.location.href = '/';
+                  }}
+                  className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium shadow hover:bg-blue-700 transition-colors mb-4"
+                >
+                  Ingresar (Crear Token de Prueba)
+                </button>
+                
+                <a href="/" className="text-blue-500 hover:text-blue-700 font-medium">
+                  Volver al Catálogo
+                </a>
+              </div>
+            </div>
+          } />
 
-      <main className="flex flex-col gap-12 max-w-6xl mx-auto">
-        <section>
-          <WalletMetrics metrics={metrics} />
-        </section>
+          {/* Rutas dentro de MainLayout */}
+          <Route element={<MainLayout />}>
+            
+            <Route path="/" element={
+              <div className="flex flex-col gap-8 mt-4">
+                <h2 className="text-3xl font-bold text-gray-800">Catálogo de Subastas</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <AuctionCard subasta={testSubasta} />
+                </div>
+              </div>
+            } />
+            
+            <Route path="/subasta/:id" element={
+              <section>
+                <LiveBiddingRoom 
+                  auction={testSubasta} 
+                  wallet={metrics} 
+                  serverTime={testSubasta.server_time} 
+                  userId={userId} 
+                />
+              </section>
+            } />
 
-        {/* Sala de Subasta de prueba */}
-        <section>
-          <LiveBiddingRoom auction={testSubasta} wallet={metrics} serverTime={testSubasta.server_time} userId={userId} />
-        </section>
+            {/* Rutas Protegidas dentro de MainLayout */}
+            <Route element={<ProtectedRoute />}>
+              
+              <Route path="/billetera" element={
+                <div className="flex flex-col gap-12">
+                  <section>
+                    <WalletMetrics metrics={metrics} />
+                  </section>
+                  <section>
+                    <DepositForm userId={userId} onDepositSuccess={fetchMetrics} />
+                  </section>
+                </div>
+              } />
 
-        {/* Formularios y Tarjetas restablecidos */}
-        <section className="flex flex-col xl:flex-row gap-8 items-start">
-          <CreateAuctionForm />
-          <AuctionCard subasta={testSubasta} />
-        </section>
-        <section>
-          <DepositForm userId={userId} onDepositSuccess={fetchMetrics} />
-        </section>
-      </main>
+              <Route path="/publicar" element={
+                <section className="flex justify-center">
+                  <CreateAuctionForm />
+                </section>
+              } />
 
-      {/* Proveedor de notificaciones para que funcionen los toast */}
+            </Route>
+
+          </Route>
+        </Routes>
+      </BrowserRouter>
+
       <Toaster position="bottom-right" richColors />
-    </div>
+    </>
   );
 }
 

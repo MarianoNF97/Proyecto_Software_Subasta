@@ -1,22 +1,23 @@
-using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using SubastaYa.Api.Hubs;
 using SubastaYa.Api.Middlewares;
 using SubastaYa.Api.Workers;
-using SubastaYa.Api.Hubs;
 using SubastaYa.Application.Common.Interfaces;
 using SubastaYa.Application.Features.Auctions.Commands.Handlers;
 using SubastaYa.Application.Features.Auctions.Queries.Handlers;
 using SubastaYa.Application.Features.Wallets.Commands.Handlers;
 using SubastaYa.Application.Features.Wallets.Queries.Handlers;
 using SubastaYa.Application.Interfaces.Repositories;
+using SubastaYa.Application.Interfaces.Services;
 using SubastaYa.Application.Services;
 using SubastaYa.Infrastructure.Identity;
 using SubastaYa.Infrastructure.Persistence;
 using SubastaYa.Infrastructure.Persistence.Repositories;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -73,6 +74,21 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = jwtSection["Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(secretKey)
     };
+
+    // Permite a SignalR recibir el JWT a través de la query string en el Handshake del WebSocket
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/auctionHub"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 
 builder.Services.AddAuthorization();
@@ -85,13 +101,15 @@ builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
-// 5. Inyección de Servicios de Dominio (SRP)
+// 5. Inyección de Servicios de Dominio y Aplicación (SRP)
 builder.Services.AddScoped<IBidWinnerService, BidWinnerService>();
 builder.Services.AddScoped<IBidValidationService, BidValidationService>();
 builder.Services.AddScoped<IBidPaymentService, BidPaymentService>();
 builder.Services.AddScoped<IAntiSnipingService, AntiSnipingService>();
 builder.Services.AddScoped<IAuctionClosureService, AuctionClosureService>();
 builder.Services.AddScoped<IDepositService, DepositService>();
+builder.Services.AddScoped<IAuctionSettlementService, AuctionSettlementService>(); // Liquidación financiera y ledger
+builder.Services.AddScoped<IAuctionAuditService, AuctionAuditService>();           // Huellas y pistas de auditoría
 
 // 6. Inyección de Handlers CQRS (Auctions)
 builder.Services.AddScoped<GetAuctionsHandler>();
@@ -108,9 +126,12 @@ builder.Services.AddScoped<DepositFundsHandler>();
 // 8. Background Worker (Cierre automático de subastas)
 builder.Services.AddHostedService<AuctionClosingWorker>();
 
-// 9. Controladores, Swagger con soporte para Bearer Token y CORS
+// 9. Inyección de servicios de notificación en tiempo real (SignalR)
+builder.Services.AddScoped<IAuctionNotificationService, AuctionNotificationService>();
+
+// 10. Controladores, SignalR, Swagger con soporte para Bearer Token y CORS
 builder.Services.AddControllers();
-builder.Services.AddSignalR(); 
+builder.Services.AddSignalR();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -146,15 +167,16 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.SetIsOriginAllowed(_ => true)
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials();
     });
 });
 
 var app = builder.Build();
 
-// 10. Pipeline HTTP
+// 11. Pipeline HTTP
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -172,7 +194,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHub<AuctionHub>("/auctionHub"); 
+app.MapHub<AuctionHub>("/auctionHub");
 
 app.Run();
-

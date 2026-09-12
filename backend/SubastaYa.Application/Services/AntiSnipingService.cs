@@ -32,7 +32,8 @@ public class AntiSnipingService : IAntiSnipingService
         var ahoraUtc = DateTime.UtcNow;
         var remainingTime = subasta.fecha_fin - ahoraUtc;
 
-        if (remainingTime <= TimeSpan.FromSeconds(60))
+        // Solo se extiende si la subasta sigue abierta y faltan 60 segundos o menos
+        if (remainingTime > TimeSpan.Zero && remainingTime <= TimeSpan.FromSeconds(60))
         {
             subasta.fecha_fin = subasta.fecha_fin.AddMinutes(2);
 

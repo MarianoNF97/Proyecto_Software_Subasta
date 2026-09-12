@@ -110,13 +110,13 @@ builder.Services.AddHostedService<AuctionClosingWorker>();
 
 // 9. Controladores, Swagger con soporte para Bearer Token y CORS
 builder.Services.AddControllers();
-builder.Services.AddSignalR(); // INYECCION DE SIGNALR
+builder.Services.AddSignalR(); 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "SubastaYa API", Version = "v1" });
 
-    // Habilita el botón Authorize en Swagger para probar con tokens JWT
+    // Habilita el botón Authorize para probar con tokens JWT
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "Encabezado de autorización JWT usando el esquema Bearer. Ejemplo: 'Bearer {token}'",

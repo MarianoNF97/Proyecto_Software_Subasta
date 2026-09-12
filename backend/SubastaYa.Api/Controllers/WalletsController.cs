@@ -22,7 +22,7 @@ public class WalletsController : ControllerBase
         var userId = GetCurrentUserId();
         var result = await handler.HandleAsync(new GetWalletBalanceQuery(userId), cancellationToken);
         if (result == null)
-            return NotFound(new { mensaje = $"Billetera no encontrada para el usuario actual." });
+            return NotFound(new { mensaje = "Billetera no encontrada para el usuario actual." });
 
         return Ok(result);
     }
@@ -66,6 +66,9 @@ public class WalletsController : ControllerBase
         [FromServices] DepositFundsHandler handler,
         CancellationToken cancellationToken)
     {
+        // Asegura que el usuario solo pueda fondear su propia billetera
+        command.UserId = GetCurrentUserId();
+
         var success = await handler.HandleAsync(command, cancellationToken);
         return Ok(new { success, mensaje = "Depósito acreditado correctamente en la billetera." });
     }
@@ -75,6 +78,11 @@ public class WalletsController : ControllerBase
         var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                     ?? User.FindFirst("sub")?.Value;
 
-        return int.Parse(claim!);
+        if (string.IsNullOrEmpty(claim) || !int.TryParse(claim, out var userId))
+        {
+            throw new UnauthorizedAccessException("El token no contiene un identificador de usuario válido.");
+        }
+
+        return userId;
     }
 }

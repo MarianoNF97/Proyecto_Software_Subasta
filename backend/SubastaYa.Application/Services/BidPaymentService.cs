@@ -36,13 +36,14 @@ public class BidPaymentService : IBidPaymentService
         var ahoraUtc = DateTime.UtcNow;
         var highestBid = _bidWinnerService.GetWinningBid(subasta.Pujas);
 
-        // Liberar saldo del postor anterior
+        // 1. Liberar saldo del postor anterior si existe
         if (highestBid != null)
         {
             var previousBuyerWallet = await _walletRepository.GetByUserIdAsync(highestBid.comprador_id, cancellationToken);
             if (previousBuyerWallet != null)
             {
                 previousBuyerWallet.saldo_retenido -= highestBid.monto;
+                previousBuyerWallet.saldo_disponible = previousBuyerWallet.saldo_total - previousBuyerWallet.saldo_retenido;
 
                 _walletRepository.AddTransaction(new TransaccionLedger
                 {
@@ -55,11 +56,12 @@ public class BidPaymentService : IBidPaymentService
             }
         }
 
-        // Retener saldo del nuevo postor
+        // 2. Retener saldo del nuevo postor
         var buyerWallet = await _walletRepository.GetByUserIdAsync(newBidderId, cancellationToken);
         if (buyerWallet != null)
         {
             buyerWallet.saldo_retenido += amount;
+            buyerWallet.saldo_disponible = buyerWallet.saldo_total - buyerWallet.saldo_retenido;
 
             _walletRepository.AddTransaction(new TransaccionLedger
             {

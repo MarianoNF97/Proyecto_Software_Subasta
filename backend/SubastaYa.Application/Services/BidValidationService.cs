@@ -50,11 +50,13 @@ public class BidValidationService : IBidValidationService
         if (highestBid != null && highestBid.comprador_id == buyerId)
             throw new BusinessValidationException("Ya eres el postor líder de esta subasta.");
 
-        // Validación de fondos disponibles
+        // Validación de fondos disponibles reales (Total - Retenido)
         var buyerWallet = await _walletRepository.GetByUserIdAsync(buyerId, cancellationToken)
             ?? throw new NotFoundException($"No se encontró la billetera para el comprador {buyerId}.");
 
-        if (buyerWallet.saldo_disponible < amount)
+        decimal disponibleReal = buyerWallet.saldo_total - buyerWallet.saldo_retenido;
+
+        if (disponibleReal < amount)
             throw new InsufficientFundsException();
     }
 }

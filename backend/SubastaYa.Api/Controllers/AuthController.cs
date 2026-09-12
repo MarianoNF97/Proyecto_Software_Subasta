@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SubastaYa.Application.Common.Interfaces;
 using SubastaYa.Application.DTOs;
+using SubastaYa.Application.Interfaces;
 using SubastaYa.Domain.Entities;
 using SubastaYa.Infrastructure.Identity;
 using SubastaYa.Infrastructure.Persistence;
@@ -50,33 +51,42 @@ public class AuthController : ControllerBase
             return BadRequest(new { errors });
         }
 
-        // Crear entidad de dominio Usuario dejando que la base de datos genere el id autoincremental
-        var domainUser = new Usuario
+        try
         {
-            email = identityUser.Email!,
-            nombre = identityUser.NombreCompleto,
-            password_hash = identityUser.PasswordHash ?? string.Empty,
-            fecha_registro = identityUser.FechaRegistro
-        };
+            // Crear entidad de dominio Usuario vinculada
+            var domainUser = new Usuario
+            {
+                email = identityUser.Email!,
+                nombre = identityUser.NombreCompleto,
+                password_hash = identityUser.PasswordHash ?? string.Empty,
+                fecha_registro = identityUser.FechaRegistro
+            };
 
-        _context.Usuarios.Add(domainUser);
-        await _context.SaveChangesAsync();
+            _context.Usuarios.Add(domainUser);
+            await _context.SaveChangesAsync();
 
-        // Inicializar billetera vinculada al id generado para el usuario de dominio
-        var billetera = new Billetera
+            // Inicializar billetera vinculada al id del usuario de dominio
+            var billetera = new Billetera
+            {
+                usuario_id = domainUser.id,
+                saldo_total = 0,
+                saldo_retenido = 0
+            };
+
+            _context.Billeteras.Add(billetera);
+            await _context.SaveChangesAsync();
+
+            var roles = await _userManager.GetRolesAsync(identityUser);
+            var token = _jwtTokenGenerator.GenerateToken(domainUser.id, identityUser.Email!, identityUser.NombreCompleto, roles);
+
+            return Ok(new AuthResponseDto(domainUser.id, identityUser.Email!, identityUser.NombreCompleto, token));
+        }
+        catch (Exception)
         {
-            usuario_id = domainUser.id,
-            saldo_total = 0,
-            saldo_retenido = 0
-        };
-
-        _context.Billeteras.Add(billetera);
-        await _context.SaveChangesAsync();
-
-        var roles = await _userManager.GetRolesAsync(identityUser);
-        var token = _jwtTokenGenerator.GenerateToken(domainUser.id, identityUser.Email!, identityUser.NombreCompleto, roles);
-
-        return Ok(new AuthResponseDto(domainUser.id, identityUser.Email!, identityUser.NombreCompleto, token));
+            // si falla el guardado de dominio o billetera, eliminamos el usuario de Identity
+            await _userManager.DeleteAsync(identityUser);
+            throw;
+        }
     }
 
     [HttpPost("login")]

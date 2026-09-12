@@ -44,17 +44,24 @@ public class AuctionsController : ControllerBase
         [FromServices] CreateAuctionHandler handler,
         CancellationToken cancellationToken)
     {
+        command.SellerId = GetCurrentUserId();
+
         var result = await handler.HandleAsync(command, cancellationToken);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
     [Authorize]
-    [HttpPost("bids")]
+    [HttpPost("{id:int}/bids")]
     public async Task<ActionResult<BidResponseDto>> PlaceBid(
+        int id,
         [FromBody] PlaceBidCommand command,
         [FromServices] PlaceBidHandler handler,
         CancellationToken cancellationToken)
     {
+        
+        command.AuctionId = id;
+        command.BuyerId = GetCurrentUserId();
+
         var result = await handler.HandleAsync(command, cancellationToken);
         return Ok(result);
     }
@@ -64,6 +71,11 @@ public class AuctionsController : ControllerBase
         var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                     ?? User.FindFirst("sub")?.Value;
 
-        return int.Parse(claim!);
+        if (string.IsNullOrEmpty(claim) || !int.TryParse(claim, out var userId))
+        {
+            throw new UnauthorizedAccessException("El token no contiene un identificador de usuario válido.");
+        }
+
+        return userId;
     }
 }

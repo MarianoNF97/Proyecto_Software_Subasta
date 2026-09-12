@@ -7,10 +7,7 @@ using SubastaYa.Domain.Entities;
 
 namespace SubastaYa.Application.Features.Auctions.Commands.Handlers;
 
-/// <summary>
-/// Handler responsable ÚNICAMENTE de orquestar el registro de pujas.
-/// Delega lógica específica a servicios de dominio.
-/// </summary>
+
 public class PlaceBidHandler : ICommandHandler<PlaceBidCommand, BidResponseDto>
 {
     private readonly IAuctionRepository _auctionRepository;

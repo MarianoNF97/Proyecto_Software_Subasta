@@ -1,4 +1,9 @@
+<<<<<<< Updated upstream
 import React, { useState, useEffect } from 'react';
+=======
+﻿import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+>>>>>>> Stashed changes
 import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
 import { toast } from 'sonner';
 import useCountdown from '../hooks/useCountdown';
@@ -29,7 +34,13 @@ const LiveBiddingRoom = ({ auction, wallet, serverTime, userId }) => {
     setBidAmount(suggestedBid);
   }, [suggestedBid]);
 
+<<<<<<< Updated upstream
   // ======= INTEGRACIÓN DE SIGNALR =======
+=======
+  // ==========================================
+  // INTEGRACIÃ“N DE SIGNALR
+  // ==========================================
+>>>>>>> Stashed changes
   useEffect(() => {
     // La URL debe coincidir con el hub en tu backend (ej. /auctionHub o /hubs/auction)
     const hubUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5094/api').replace('/api', '/auctionHub');
@@ -43,19 +54,29 @@ const LiveBiddingRoom = ({ auction, wallet, serverTime, userId }) => {
     const startConnection = async () => {
       try {
         await connection.start();
+<<<<<<< Updated upstream
         console.log('✅ Conectado a SignalR - Sala en Vivo');
         
         // Si tu backend requiere unirse a un "grupo" de subasta específica:
         // await connection.invoke('JoinAuctionGroup', auction.id);
+=======
+        console.log('âœ… Conectado a SignalR - Sala en Vivo');
+        // Unirse al grupo especÃ­fico de esta subasta
+        await connection.invoke('JoinAuctionGroup', id.toString());
+>>>>>>> Stashed changes
       } catch (err) {
-        console.error('❌ Error al conectar a SignalR:', err);
+        console.error('âŒ Error al conectar a SignalR:', err);
       }
     };
 
     // Escuchar el evento de nueva puja (el nombre del evento debe coincidir con backend)
     connection.on('ReceiveNewBid', (newBid) => {
+<<<<<<< Updated upstream
       // newBid esperado: { amount: 4000000, userId: 2, time: "2026-09-10T...", newEndDate: "2026-..." }
       
+=======
+      console.log('ðŸ“¬ Nueva puja recibida:', newBid);
+>>>>>>> Stashed changes
       setCurrentPrice(newBid.amount);
       setLatestBidderId(newBid.userId);
       
@@ -75,12 +96,25 @@ const LiveBiddingRoom = ({ auction, wallet, serverTime, userId }) => {
 
     startConnection();
 
+<<<<<<< Updated upstream
     return () => {
       connection.off('ReceiveNewBid');
       connection.stop();
     };
   }, [userId]);
   // ======================================
+=======
+  // ==========================================
+  // LÃ“GICA DE NEGOCIO Y RENDERIZADO
+  // ==========================================
+  const availableBalance = wallet?.availableBalance || 0;
+  
+  // Utilizamos el tiempo local como serverTime fallback
+  const timeLeft = useCountdown(endDate, new Date().toISOString());
+  // Asumimos que el backend retorna "Activa" o "Cerrada", o evaluamos el tiempo
+  const isEnded = timeLeft === 0 || status === 'Cerrada' || status === 'CERRADA';
+  const isEndingSoon = timeLeft > 0 && timeLeft < 60;
+>>>>>>> Stashed changes
 
   const hasInsufficientFunds = bidAmount > availableBalance;
   const isBidTooLow = bidAmount < suggestedBid;
@@ -144,10 +178,17 @@ const LiveBiddingRoom = ({ auction, wallet, serverTime, userId }) => {
           </div>
           
           <div className="p-8">
+<<<<<<< Updated upstream
             <h1 className="text-3xl font-extrabold text-gray-900 mb-4 leading-tight">{titulo}</h1>
             <h2 className="text-lg font-semibold text-gray-800 mb-2 border-b pb-2">Descripción del Lote</h2>
             <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">
               {descripcion || 'No hay descripción disponible para este lote.'}
+=======
+            <h1 className="text-3xl font-extrabold text-gray-900 mb-4 leading-tight">{title}</h1>
+            <h2 className="text-lg font-semibold text-gray-800 mb-2 border-b pb-2">DescripciÃ³n del Lote</h2>
+            <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">
+              {description || 'No hay descripciÃ³n disponible para este lote.'}
+>>>>>>> Stashed changes
             </p>
           </div>
         </div>
@@ -156,7 +197,7 @@ const LiveBiddingRoom = ({ auction, wallet, serverTime, userId }) => {
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
           <h2 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Historial de Movimientos</h2>
           {bidsHistory.length === 0 ? (
-            <p className="text-gray-500 italic">No hay ofertas recientes. ¡Sé el primero en pujar!</p>
+            <p className="text-gray-500 italic">No hay ofertas recientes. Â¡SÃ© el primero en pujar!</p>
           ) : (
             <div className="flex flex-col gap-3">
               {bidsHistory.map((bid, index) => (
@@ -173,7 +214,7 @@ const LiveBiddingRoom = ({ auction, wallet, serverTime, userId }) => {
         </div>
       </div>
 
-      {/* COLUMNA DERECHA: Panel de Acción */}
+      {/* COLUMNA DERECHA: Panel de AcciÃ³n */}
       <div className="lg:col-span-4 flex flex-col gap-6 sticky top-8">
         
         {/* Temporizador y Liderazgo */}
@@ -182,22 +223,22 @@ const LiveBiddingRoom = ({ auction, wallet, serverTime, userId }) => {
         `}>
           <span className={`text-sm font-bold tracking-widest uppercase mb-2 
             ${isEnded ? 'text-gray-500' : isEndingSoon ? 'text-yellow-600' : 'text-blue-500'}`}>
-            {isEnded ? 'Subasta Finalizada' : isEndingSoon ? '¡Últimos Segundos!' : 'Tiempo Restante'}
+            {isEnded ? 'Subasta Finalizada' : isEndingSoon ? 'Â¡Ãšltimos Segundos!' : 'Tiempo Restante'}
           </span>
           <div className={`text-5xl md:text-6xl font-black font-mono tracking-tighter mb-4
             ${isEnded ? 'text-gray-400' : isEndingSoon ? 'text-red-600 animate-pulse' : 'text-blue-700'}`}>
             {formatTime(timeLeft)}
           </div>
           
-          {/* Alerta dinámica de Liderazgo */}
+          {/* Alerta dinÃ¡mica de Liderazgo */}
           {!isEnded && latestBidderId && (
             latestBidderId === userId ? (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-100 text-green-700 font-bold text-sm">
-                ■ Liderando
+                â–  Liderando
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-100 text-orange-700 font-bold text-sm">
-                ■ Superado (Outbid)
+                â–  Superado (Outbid)
               </span>
             )
           )}
@@ -214,7 +255,7 @@ const LiveBiddingRoom = ({ auction, wallet, serverTime, userId }) => {
 
           <form onSubmit={handleBidSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-semibold text-gray-700">Tu Oferta (Mínimo: {formatCurrency(suggestedBid)})</label>
+              <label className="text-sm font-semibold text-gray-700">Tu Oferta (MÃ­nimo: {formatCurrency(suggestedBid)})</label>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">$</span>
                 <input 

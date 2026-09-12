@@ -170,5 +170,17 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+<<<<<<< Updated upstream
+=======
+app.MapHub<AuctionHub>("/auctionHub"); 
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    db.Database.Migrate();
+}
+
+app.Run();
+>>>>>>> Stashed changes
 
 app.Run();

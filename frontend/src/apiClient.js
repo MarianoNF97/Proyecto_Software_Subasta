@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 
 // Instancia base de Axios
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5094/api',
+  baseURL: import.meta.env.VITE_API_URL || '/api',
 });
 
 // Interceptor de peticiones (Request)
@@ -37,9 +37,8 @@ apiClient.interceptors.response.use(
         if (window.location.pathname !== '/login') {
           window.location.href = '/login';
         }
-      } else if ([400, 404, 409].includes(status)) {
-        // Mostrar notificación de error genérica
-        const errorMessage = data?.error || 'Ha ocurrido un error inesperado';
+      } else {
+        const errorMessage = data?.error || `Error no especificado (HTTP ${status})`;
         toast.error(errorMessage);
       }
     } else {

@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SubastaYa.Application.DTOs;
@@ -22,7 +22,7 @@ public class WalletsController : ControllerBase
         var userId = GetCurrentUserId();
         var result = await handler.HandleAsync(new GetWalletBalanceQuery(userId), cancellationToken);
         if (result == null)
-            return NotFound(new { mensaje = "Billetera no encontrada para el usuario actual." });
+            throw new SubastaYa.Application.Exceptions.NotFoundException("Billetera no encontrada para el usuario actual.");
 
         return Ok(result);
     }
@@ -50,7 +50,7 @@ public class WalletsController : ControllerBase
 
         var result = await handler.HandleAsync(new GetWalletBalanceQuery(userId), cancellationToken);
         if (result == null)
-            return NotFound(new { mensaje = $"Billetera no encontrada para el usuario con ID {userId}." });
+            throw new SubastaYa.Application.Exceptions.NotFoundException($"Billetera no encontrada para el usuario con ID {userId}.");
 
         return Ok(result);
     }
@@ -95,3 +95,4 @@ public class WalletsController : ControllerBase
         return userId;
     }
 }
+

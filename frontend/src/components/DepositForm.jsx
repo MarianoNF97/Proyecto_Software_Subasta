@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import apiClient from '../apiClient';
 import { toast } from 'sonner';
+import { useAuth } from '../contexts/AuthContext';
 
-const DepositForm = ({ onDepositSuccess, userId = 1 }) => {
+const DepositForm = ({ onDepositSuccess }) => {
+  const { user } = useAuth();
+  const userId = user?.id;
   const [amount, setAmount] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 

@@ -11,6 +11,7 @@ using SubastaYa.Application.Features.Auctions.Commands.Handlers;
 using SubastaYa.Application.Features.Auctions.Queries.Handlers;
 using SubastaYa.Application.Features.Wallets.Commands.Handlers;
 using SubastaYa.Application.Features.Wallets.Queries.Handlers;
+using SubastaYa.Application.Features.Categories.Queries.Handlers;
 using SubastaYa.Application.Interfaces.Repositories;
 using SubastaYa.Application.Interfaces.Services;
 using SubastaYa.Application.Services;
@@ -98,6 +99,7 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IAuctionRepository, AuctionRepository>();
 builder.Services.AddScoped<IBidRepository, BidRepository>();
 builder.Services.AddScoped<IWalletRepository, WalletRepository>();
+builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
@@ -115,6 +117,7 @@ builder.Services.AddScoped<IAuctionAuditService, AuctionAuditService>();        
 builder.Services.AddScoped<GetAuctionsHandler>();
 builder.Services.AddScoped<GetAuctionByIdHandler>();
 builder.Services.AddScoped<CreateAuctionHandler>();
+builder.Services.AddScoped<GetCategoriesHandler>();
 builder.Services.AddScoped<PlaceBidHandler>();
 builder.Services.AddScoped<CloseExpiredAuctionsHandler>();
 
@@ -130,7 +133,26 @@ builder.Services.AddHostedService<AuctionClosingWorker>();
 builder.Services.AddScoped<IAuctionNotificationService, AuctionNotificationService>();
 
 // 10. Controladores, SignalR, Swagger con soporte para Bearer Token y CORS
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var errors = context.ModelState
+                .Where(e => e.Value != null && e.Value.Errors.Count > 0)
+                .SelectMany(x => x.Value!.Errors)
+                .Select(x => x.ErrorMessage);
+
+            var response = new
+            {
+                status = 400,
+                error = string.Join(", ", errors),
+                timestamp = DateTime.UtcNow
+            };
+
+            return new Microsoft.AspNetCore.Mvc.BadRequestObjectResult(response);
+        };
+    });
 builder.Services.AddSignalR();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>

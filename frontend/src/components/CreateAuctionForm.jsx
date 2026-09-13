@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import apiClient from '../apiClient';
 
@@ -7,14 +7,27 @@ const CreateAuctionForm = () => {
     titulo: '',
     descripcion: '',
     imagen: '',
-    categoria: 'Tecnología',
+    categoriaId: '',
     precio_base: 0,
     incremento_minimo: 0,
     fecha_inicio: '',
     fecha_fin: ''
   });
 
+  const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await apiClient.get('/categories');
+        setCategories(response.data);
+      } catch (error) {
+        console.error('Error cargando categorías:', error);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -32,7 +45,7 @@ const CreateAuctionForm = () => {
   const isDateInvalid = formData.fecha_inicio && formData.fecha_fin && 
                         new Date(formData.fecha_fin) <= new Date(formData.fecha_inicio);
                         
-  const isFormIncomplete = !formData.titulo || !formData.fecha_inicio || !formData.fecha_fin || !formData.categoria;
+  const isFormIncomplete = !formData.titulo || !formData.fecha_inicio || !formData.fecha_fin || !formData.categoriaId;
 
   // Bloqueo preventivo
   const isSubmitDisabled = hasNegativeEconomics || isDateInvalid || isFormIncomplete || isLoading;
@@ -44,8 +57,24 @@ const CreateAuctionForm = () => {
     setIsLoading(true); // Mostrar spinner y deshabilitar
 
     try {
+      // Fuente API: backend/SubastaYa.Api/Controllers/AuctionsController.cs
+      // Contrato C#: backend/SubastaYa.Application/Features/Auctions/Commands/CreateAuctionCommand.cs
+      // Método: POST /auctions
+      const payload = {
+        categoryId: parseInt(formData.categoriaId),
+        title: formData.titulo,
+        description: formData.descripcion,
+        imageUrl: formData.imagen,
+        startingPrice: parseFloat(formData.precio_base),
+        minIncrement: parseFloat(formData.incremento_minimo),
+        startDate: new Date(formData.fecha_inicio).toISOString(),
+        endDate: new Date(formData.fecha_fin).toISOString()
+        // NOTA: sellerId se omite intencionalmente por reglas de IDOR. 
+        // El backend debe extraer el CurrentUserId del token JWT.
+      };
+
       // POST a la API
-      await apiClient.post('/auctions', formData);
+      await apiClient.post('/auctions', payload);
       toast.success('Subasta publicada con éxito');
       
       // Limpiar formulario tras éxito
@@ -53,7 +82,7 @@ const CreateAuctionForm = () => {
         titulo: '',
         descripcion: '',
         imagen: '',
-        categoria: 'Tecnología',
+        categoriaId: '',
         precio_base: 0,
         incremento_minimo: 0,
         fecha_inicio: '',
@@ -96,14 +125,13 @@ const CreateAuctionForm = () => {
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
               <select 
-                name="categoria" value={formData.categoria} onChange={handleChange} disabled={isLoading}
+                name="categoriaId" value={formData.categoriaId} onChange={handleChange} disabled={isLoading || categories.length === 0}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 text-gray-900"
               >
-                <option value="Tecnología">Tecnología</option>
-                <option value="Vehículos">Vehículos</option>
-                <option value="Inmuebles">Inmuebles</option>
-                <option value="Arte">Arte</option>
-                <option value="Otros">Otros</option>
+                <option value="">Seleccionar categoría</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>{cat.nombre}</option>
+                ))}
               </select>
             </div>
             

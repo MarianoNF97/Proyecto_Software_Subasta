@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SubastaYa.Application.Common.Interfaces;
@@ -6,6 +6,7 @@ using SubastaYa.Application.DTOs;
 using SubastaYa.Domain.Entities;
 using SubastaYa.Infrastructure.Identity;
 using SubastaYa.Infrastructure.Persistence;
+using SubastaYa.Application.Exceptions;
 
 namespace SubastaYa.Api.Controllers;
 
@@ -33,7 +34,7 @@ public class AuthController : ControllerBase
         var existingUser = await _userManager.FindByEmailAsync(request.Email);
         if (existingUser != null)
         {
-            return BadRequest(new { error = "El correo electrónico ya está registrado." });
+            throw new BusinessValidationException("El correo electrónico ya está registrado.");
         }
 
         // Paso 1.4: Transacción atómica que asegura Identity + Dominio + Billetera
@@ -51,9 +52,8 @@ public class AuthController : ControllerBase
             var result = await _userManager.CreateAsync(identityUser, request.Password);
             if (!result.Succeeded)
             {
-                await transaction.RollbackAsync();
-                var errors = result.Errors.Select(e => e.Description);
-                return BadRequest(new { errors });
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                throw new BusinessValidationException(errors);
             }
 
             // 2. Crear entidad de dominio Usuario vinculada
@@ -100,7 +100,7 @@ public class AuthController : ControllerBase
         var identityUser = await _userManager.FindByEmailAsync(request.Email);
         if (identityUser == null || !await _userManager.CheckPasswordAsync(identityUser, request.Password))
         {
-            return Unauthorized(new { error = "Credenciales incorrectas." });
+            throw new UnauthorizedAccessException("Credenciales incorrectas.");
         }
 
         var domainUser = await _context.Usuarios
@@ -109,7 +109,7 @@ public class AuthController : ControllerBase
 
         if (domainUser == null)
         {
-            return Unauthorized(new { error = "Usuario de dominio no encontrado." });
+            throw new UnauthorizedAccessException("Usuario de dominio no encontrado.");
         }
 
         var roles = await _userManager.GetRolesAsync(identityUser);
@@ -117,4 +117,5 @@ public class AuthController : ControllerBase
 
         return Ok(new AuthResponseDto(domainUser.id, identityUser.Email!, identityUser.NombreCompleto, token));
     }
+}
 }

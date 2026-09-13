@@ -1,8 +1,9 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import useCountdown from '../hooks/useCountdown';
 
 const AuctionCard = ({ subasta }) => {
-  const { imageUrl, title, categoryName, currentPrice, totalBids, endDate } = subasta;
+  const { id, imageUrl, title, categoryName, currentPrice, totalBids, endDate } = subasta;
   
   // Uso del Custom Hook para mantener el componente limpio
   const timeLeft = useCountdown(endDate);
@@ -32,9 +33,10 @@ const AuctionCard = ({ subasta }) => {
   };
 
   return (
-    <div className="flex flex-col bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow duration-300 w-full max-w-sm">
-      
-      {/* Mitad superior: Imagen y Categoría (Badge flotante) */}
+    <Link to={`/subasta/${id}`} className="block w-full max-w-sm transition-transform hover:-translate-y-1 duration-300">
+      <div className="flex flex-col bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg transition-shadow duration-300 h-full cursor-pointer">
+        
+        {/* Mitad superior: Imagen y Categoría (Badge flotante) */}
       <div className="relative h-56 w-full bg-gray-100">
         <img 
           src={imageUrl || 'https://via.placeholder.com/400x300?text=Subasta+Sin+Imagen'} 
@@ -84,6 +86,7 @@ const AuctionCard = ({ subasta }) => {
       </div>
       
     </div>
+    </Link>
   );
 };
 

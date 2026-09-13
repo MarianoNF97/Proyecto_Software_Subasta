@@ -32,7 +32,7 @@ public class AuctionsController : ControllerBase
     {
         var result = await handler.HandleAsync(new GetAuctionByIdQuery(id), cancellationToken);
         if (result == null)
-            return NotFound(new { mensaje = $"Subasta con ID {id} no encontrada." });
+            throw new SubastaYa.Application.Exceptions.NotFoundException($"Subasta con ID {id} no encontrada.");
 
         return Ok(result);
     }
@@ -82,9 +82,10 @@ public class AuctionsController : ControllerBase
 
         if (string.IsNullOrEmpty(claim) || !int.TryParse(claim, out var userId))
         {
-            throw new UnauthorizedAccessException("El token no contiene un identificador de usuario v·lido.");
+            throw new UnauthorizedAccessException("El token no contiene un identificador de usuario v√°lido.");
         }
 
         return userId;
     }
 }
+

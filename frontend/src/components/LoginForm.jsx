@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import apiClient from '../apiClient';
 import { toast } from 'sonner';
+import { useAuth } from '../contexts/AuthContext';
 
 const LoginForm = () => {
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -29,7 +31,7 @@ const LoginForm = () => {
       const token = response.data?.token || response.data?.Token;
       
       if (token) {
-        localStorage.setItem('token', token);
+        login(token);
         toast.success('¡Sesión iniciada con éxito!');
         navigate('/'); // Redirige al inicio
       } else {

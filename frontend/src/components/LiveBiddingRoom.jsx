@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
 import { toast } from 'sonner';
 import useCountdown from '../hooks/useCountdown';
 import apiClient from '../apiClient';
+import { useAuth } from '../contexts/AuthContext';
 
-const LiveBiddingRoom = ({ wallet, userId }) => {
+const LiveBiddingRoom = ({ wallet }) => {
   const { id } = useParams();
+  const { user } = useAuth();
+  const userId = user?.id;
   
   // 1. Estado de la subasta (obtenida del backend)
   const [auction, setAuction] = useState(null);
@@ -57,7 +60,7 @@ const LiveBiddingRoom = ({ wallet, userId }) => {
   useEffect(() => {
     if (!auction) return; // Esperar a que exista la subasta
 
-    const hubUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5094/api').replace('/api', '/auctionHub');
+    const hubUrl = (import.meta.env.VITE_API_URL || '/api').replace('/api', '/auctionHub');
     
     const connection = new HubConnectionBuilder()
       .withUrl(hubUrl)
@@ -109,7 +112,8 @@ const LiveBiddingRoom = ({ wallet, userId }) => {
   const availableBalance = wallet?.availableBalance || 0;
   
   // Utilizamos el tiempo local como serverTime fallback
-  const timeLeft = useCountdown(endDate, new Date().toISOString());
+  const serverTimeRef = useRef(new Date().toISOString());
+  const timeLeft = useCountdown(endDate, serverTimeRef.current);
   // Asumimos que el backend retorna "Activa" o "Cerrada", o evaluamos el tiempo
   const isEnded = timeLeft === 0 || status === 'Cerrada' || status === 'CERRADA';
   const isEndingSoon = timeLeft > 0 && timeLeft < 60;
@@ -123,7 +127,11 @@ const LiveBiddingRoom = ({ wallet, userId }) => {
 
     setIsBidding(true);
     try {
-      const response = await apiClient.post(`/auctions/${id}/bids`, { amount: bidAmount });
+      const response = await apiClient.post('/auctions/bids', {
+        auctionId: parseInt(id),
+        buyerId: userId,
+        amount: parseFloat(bidAmount)
+      });
       
       if (response.status === 200 || response.status === 201 || response.status === 204) {
         toast.success("Oferta enviada exitosamente");
@@ -305,5 +313,4 @@ const LiveBiddingRoom = ({ wallet, userId }) => {
   );
 };
 
-export default LiveBiddingRoom;
 export default LiveBiddingRoom;

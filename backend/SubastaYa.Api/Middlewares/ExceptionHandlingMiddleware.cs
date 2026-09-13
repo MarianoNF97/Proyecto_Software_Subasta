@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SubastaYa.Application.Exceptions;
@@ -61,6 +61,11 @@ public class ExceptionHandlingMiddleware
             case InvalidOperationException invalidOp:
                 code = HttpStatusCode.BadRequest;
                 message = invalidOp.Message;
+                break;
+                
+            case UnauthorizedAccessException unauth:
+                code = HttpStatusCode.Unauthorized;
+                message = unauth.Message;
                 break;
         }
 

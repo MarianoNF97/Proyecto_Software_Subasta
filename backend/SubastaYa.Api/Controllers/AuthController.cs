@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SubastaYa.Application.Common.Interfaces;
 using SubastaYa.Application.DTOs;
-using SubastaYa.Application.Interfaces;
 using SubastaYa.Domain.Entities;
 using SubastaYa.Infrastructure.Identity;
 using SubastaYa.Infrastructure.Persistence;
@@ -34,26 +33,30 @@ public class AuthController : ControllerBase
         var existingUser = await _userManager.FindByEmailAsync(request.Email);
         if (existingUser != null)
         {
-            return BadRequest(new { message = "El correo electrónico ya está registrado." });
+            return BadRequest(new { error = "El correo electrónico ya está registrado." });
         }
 
-        var identityUser = new ApplicationUser
-        {
-            UserName = request.Email,
-            Email = request.Email,
-            NombreCompleto = request.NombreCompleto
-        };
-
-        var result = await _userManager.CreateAsync(identityUser, request.Password);
-        if (!result.Succeeded)
-        {
-            var errors = result.Errors.Select(e => e.Description);
-            return BadRequest(new { errors });
-        }
-
+        // Paso 1.4: Transacción atómica que asegura Identity + Dominio + Billetera
+        using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
-            // Crear entidad de dominio Usuario vinculada
+            // 1. Crear usuario en Identity
+            var identityUser = new ApplicationUser
+            {
+                UserName = request.Email,
+                Email = request.Email,
+                NombreCompleto = request.NombreCompleto
+            };
+
+            var result = await _userManager.CreateAsync(identityUser, request.Password);
+            if (!result.Succeeded)
+            {
+                await transaction.RollbackAsync();
+                var errors = result.Errors.Select(e => e.Description);
+                return BadRequest(new { errors });
+            }
+
+            // 2. Crear entidad de dominio Usuario vinculada
             var domainUser = new Usuario
             {
                 email = identityUser.Email!,
@@ -65,7 +68,7 @@ public class AuthController : ControllerBase
             _context.Usuarios.Add(domainUser);
             await _context.SaveChangesAsync();
 
-            // Inicializar billetera vinculada al id del usuario de dominio
+            // 3. Inicializar billetera vinculada al id del usuario de dominio
             var billetera = new Billetera
             {
                 usuario_id = domainUser.id,
@@ -76,6 +79,9 @@ public class AuthController : ControllerBase
             _context.Billeteras.Add(billetera);
             await _context.SaveChangesAsync();
 
+            // Confirmar transacción completa
+            await transaction.CommitAsync();
+
             var roles = await _userManager.GetRolesAsync(identityUser);
             var token = _jwtTokenGenerator.GenerateToken(domainUser.id, identityUser.Email!, identityUser.NombreCompleto, roles);
 
@@ -83,8 +89,7 @@ public class AuthController : ControllerBase
         }
         catch (Exception)
         {
-            // si falla el guardado de dominio o billetera, eliminamos el usuario de Identity
-            await _userManager.DeleteAsync(identityUser);
+            await transaction.RollbackAsync();
             throw;
         }
     }
@@ -95,7 +100,7 @@ public class AuthController : ControllerBase
         var identityUser = await _userManager.FindByEmailAsync(request.Email);
         if (identityUser == null || !await _userManager.CheckPasswordAsync(identityUser, request.Password))
         {
-            return Unauthorized(new { message = "Credenciales incorrectas." });
+            return Unauthorized(new { error = "Credenciales incorrectas." });
         }
 
         var domainUser = await _context.Usuarios
@@ -104,7 +109,7 @@ public class AuthController : ControllerBase
 
         if (domainUser == null)
         {
-            return Unauthorized(new { message = "Usuario de dominio no encontrado." });
+            return Unauthorized(new { error = "Usuario de dominio no encontrado." });
         }
 
         var roles = await _userManager.GetRolesAsync(identityUser);

@@ -43,6 +43,11 @@ public class WalletsController : ControllerBase
         [FromServices] GetWalletBalanceHandler handler,
         CancellationToken cancellationToken)
     {
+        // Prevención IDOR: Solo el propio usuario o un Admin puede consultar el saldo
+        var currentUserId = GetCurrentUserId();
+        if (userId != currentUserId && !User.IsInRole("Admin"))
+            return Forbid();
+
         var result = await handler.HandleAsync(new GetWalletBalanceQuery(userId), cancellationToken);
         if (result == null)
             return NotFound(new { mensaje = $"Billetera no encontrada para el usuario con ID {userId}." });
@@ -56,6 +61,11 @@ public class WalletsController : ControllerBase
         [FromServices] GetWalletTransactionsHandler handler,
         CancellationToken cancellationToken)
     {
+        // Prevención IDOR: Solo el propio usuario o un Admin puede consultar las transacciones
+        var currentUserId = GetCurrentUserId();
+        if (userId != currentUserId && !User.IsInRole("Admin"))
+            return Forbid();
+
         var result = await handler.HandleAsync(new GetWalletTransactionsQuery(userId), cancellationToken);
         return Ok(result);
     }
@@ -66,7 +76,6 @@ public class WalletsController : ControllerBase
         [FromServices] DepositFundsHandler handler,
         CancellationToken cancellationToken)
     {
-        // Asegura que el usuario solo pueda fondear su propia billetera
         command.UserId = GetCurrentUserId();
 
         var success = await handler.HandleAsync(command, cancellationToken);

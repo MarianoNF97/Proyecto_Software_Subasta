@@ -20,6 +20,11 @@ public class CreateAuctionHandler : ICommandHandler<CreateAuctionCommand, Auctio
 
     public async Task<AuctionResponseDto> HandleAsync(CreateAuctionCommand command, CancellationToken cancellationToken = default)
     {
+        var now = DateTime.UtcNow;
+
+        if (command.StartDate < now.AddMinutes(-5))
+            throw new BusinessValidationException("La fecha de inicio de la subasta no puede estar en el pasado.");
+
         if (command.EndDate <= command.StartDate)
             throw new BusinessValidationException("La fecha de fin debe ser posterior a la fecha de inicio.");
 
@@ -37,7 +42,7 @@ public class CreateAuctionHandler : ICommandHandler<CreateAuctionCommand, Auctio
             incremento_minimo = command.MinIncrement,
             fecha_inicio = command.StartDate,
             fecha_fin = command.EndDate,
-            estado = command.StartDate <= DateTime.UtcNow ? "ACTIVA" : "PROGRAMADA"
+            estado = command.StartDate <= now ? "ACTIVA" : "PROGRAMADA"
         };
 
         await _auctionRepository.AddAsync(subasta, cancellationToken);

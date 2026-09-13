@@ -37,6 +37,16 @@ public class AuctionsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("{id:int}/bids")]
+    public async Task<ActionResult<IEnumerable<BidHistoryDto>>> GetBids(
+        int id,
+        [FromServices] GetAuctionBidsHandler handler,
+        CancellationToken cancellationToken)
+    {
+        var result = await handler.HandleAsync(new GetAuctionBidsQuery(id), cancellationToken);
+        return Ok(result);
+    }
+
     [Authorize]
     [HttpPost]
     public async Task<ActionResult<AuctionResponseDto>> Create(
@@ -58,7 +68,6 @@ public class AuctionsController : ControllerBase
         [FromServices] PlaceBidHandler handler,
         CancellationToken cancellationToken)
     {
-        
         command.AuctionId = id;
         command.BuyerId = GetCurrentUserId();
 

@@ -56,6 +56,39 @@ public class AuctionRepository : IAuctionRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IEnumerable<Subasta>> GetBySellerIdAsync(int sellerId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Subastas
+            .Include(s => s.Vendedor)
+            .Include(s => s.Categoria)
+            .Include(s => s.Pujas)
+            .AsNoTracking()
+            .Where(s => s.vendedor_id == sellerId)
+            .OrderByDescending(s => s.fecha_inicio)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IEnumerable<Subasta>> GetParticipatedByUserIdAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Subastas
+            .Include(s => s.Vendedor)
+            .Include(s => s.Categoria)
+            .Include(s => s.Pujas)
+            .AsNoTracking()
+            .Where(s => s.Pujas.Any(p => p.comprador_id == userId))
+            .OrderByDescending(s => s.fecha_fin)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IEnumerable<Puja>> GetBidsByAuctionIdAsync(int auctionId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Pujas
+            .AsNoTracking()
+            .Where(p => p.subasta_id == auctionId)
+            .OrderByDescending(p => p.fecha_puja)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task AddAsync(Subasta subasta, CancellationToken cancellationToken = default)
     {
         await _context.Subastas.AddAsync(subasta, cancellationToken);

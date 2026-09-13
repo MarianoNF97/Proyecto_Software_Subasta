@@ -9,4 +9,7 @@ public interface IAuctionRepository
     Task<Subasta?> GetByIdWithBidsAsync(int id, CancellationToken cancellationToken = default);
     Task<IEnumerable<Subasta>> GetExpiredActiveAuctionsAsync(CancellationToken cancellationToken = default);
     Task AddAsync(Subasta subasta, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Subasta>> GetBySellerIdAsync(int sellerId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Subasta>> GetParticipatedByUserIdAsync(int userId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Puja>> GetBidsByAuctionIdAsync(int auctionId, CancellationToken cancellationToken = default);
 }

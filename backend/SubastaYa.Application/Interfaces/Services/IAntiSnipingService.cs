@@ -1,15 +1,8 @@
-namespace SubastaYa.Application.Services;
+using SubastaYa.Domain.Entities;
 
-/// <summary>
-/// Servicio responsable ÚNICAMENTE de aplicar la regla anti-sniping.
-/// </summary>
+namespace SubastaYa.Application.Interfaces.Services;
+
 public interface IAntiSnipingService
 {
-    /// <summary>
-    /// Aplica la regla anti-sniping: extiende tiempo si falta menos de 60 segundos.
-    /// </summary>
-    Task<bool> ApplyAntiSnipingRuleAsync(
-        int auctionId,
-        int bidderId,
-        CancellationToken cancellationToken = default);
+    bool ApplyAntiSnipingRule(Subasta subasta, int bidderId, DateTime ahoraUtc);
 }

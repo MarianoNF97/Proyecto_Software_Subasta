@@ -9,27 +9,30 @@ using SubastaYa.Api.Workers;
 using SubastaYa.Application.Common.Interfaces;
 using SubastaYa.Application.Features.Auctions.Commands.Handlers;
 using SubastaYa.Application.Features.Auctions.Queries.Handlers;
+using SubastaYa.Application.Features.Categories.Queries.Handlers;
 using SubastaYa.Application.Features.Wallets.Commands.Handlers;
 using SubastaYa.Application.Features.Wallets.Queries.Handlers;
-using SubastaYa.Application.Features.Categories.Queries.Handlers;
 using SubastaYa.Application.Interfaces.Repositories;
 using SubastaYa.Application.Interfaces.Services;
 using SubastaYa.Application.Services;
 using SubastaYa.Infrastructure.Identity;
 using SubastaYa.Infrastructure.Persistence;
 using SubastaYa.Infrastructure.Persistence.Repositories;
+using SubastaYa.Infrastructure.Persistence.Seeders;
+using System.Data;
+using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Cadena de conexión y DbContext
+// Cadena de conexión y DbContext
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Cadena de conexión 'DefaultConnection' no encontrada.");
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 
-// 2. Configuración de ASP.NET Core Identity
+// 1. Configuración de ASP.NET Core Identity (sin AddSignInManager para no sobreescribir el esquema JWT por cookies)
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
 {
     options.Password.RequireDigit = false;
@@ -41,11 +44,13 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 .AddRoles<IdentityRole<int>>()
 .AddUserManager<UserManager<ApplicationUser>>()
 .AddRoleManager<RoleManager<IdentityRole<int>>>()
-.AddSignInManager()
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
-// 3. Configuración de Autenticación JWT y validación Fail-Fast
+// 2. Desactivar mapeo automático de claims XML/SOAP para respetar los claims directos (sub, name, role)
+JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+
+// 3. Configuración explícita de Autenticación JWT y validación Fail-Fast
 var jwtSection = builder.Configuration.GetSection("JwtSettings");
 var secret = jwtSection["Secret"];
 
@@ -60,6 +65,7 @@ builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(options =>
 {
@@ -73,12 +79,24 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         ValidIssuer = jwtSection["Issuer"],
         ValidAudience = jwtSection["Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(secretKey)
+        IssuerSigningKey = new SymmetricSecurityKey(secretKey),
+        ClockSkew = TimeSpan.Zero
     };
 
     // Permite a SignalR recibir el JWT a través de la query string en el Handshake del WebSocket
     options.Events = new JwtBearerEvents
     {
+        OnAuthenticationFailed = context =>
+        {
+            var exception = context.Exception; 
+            return Task.CompletedTask;
+        },
+        OnChallenge = context =>
+        {
+            var error = context.Error;
+            var description = context.ErrorDescription;
+            return Task.CompletedTask;
+        },
         OnMessageReceived = context =>
         {
             var accessToken = context.Request.Query["access_token"];
@@ -89,12 +107,12 @@ builder.Services.AddAuthentication(options =>
             }
             return Task.CompletedTask;
         }
-    };
+    }; ;
 });
 
 builder.Services.AddAuthorization();
 
-// 4. Inyección de Repositorios (SRP) y Unit of Work
+// Inyección de Repositorios (SRP) y Unit of Work
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IAuctionRepository, AuctionRepository>();
 builder.Services.AddScoped<IBidRepository, BidRepository>();
@@ -103,36 +121,37 @@ builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
-// 5. Inyección de Servicios de Dominio y Aplicación (SRP)
+// Inyección de Servicios de Dominio y Aplicación (SRP)
 builder.Services.AddScoped<IBidWinnerService, BidWinnerService>();
 builder.Services.AddScoped<IBidValidationService, BidValidationService>();
 builder.Services.AddScoped<IBidPaymentService, BidPaymentService>();
 builder.Services.AddScoped<IAntiSnipingService, AntiSnipingService>();
 builder.Services.AddScoped<IAuctionClosureService, AuctionClosureService>();
 builder.Services.AddScoped<IDepositService, DepositService>();
-builder.Services.AddScoped<IAuctionSettlementService, AuctionSettlementService>(); // Liquidación financiera y ledger
-builder.Services.AddScoped<IAuctionAuditService, AuctionAuditService>();           // Huellas y pistas de auditoría
+builder.Services.AddScoped<IAuctionSettlementService, AuctionSettlementService>();
+builder.Services.AddScoped<IAuctionAuditService, AuctionAuditService>();
+builder.Services.AddScoped<IAuctionActivationService, AuctionActivationService>();
 
-// 6. Inyección de Handlers CQRS (Auctions)
+// Inyección de Handlers CQRS
 builder.Services.AddScoped<GetAuctionsHandler>();
 builder.Services.AddScoped<GetAuctionByIdHandler>();
 builder.Services.AddScoped<CreateAuctionHandler>();
 builder.Services.AddScoped<GetCategoriesHandler>();
 builder.Services.AddScoped<PlaceBidHandler>();
 builder.Services.AddScoped<CloseExpiredAuctionsHandler>();
-
-// 7. Inyección de Handlers CQRS (Wallets)
+builder.Services.AddScoped<ActivateScheduledAuctionsHandler>();
 builder.Services.AddScoped<GetWalletBalanceHandler>();
 builder.Services.AddScoped<GetWalletTransactionsHandler>();
 builder.Services.AddScoped<DepositFundsHandler>();
 
-// 8. Background Worker (Cierre automático de subastas)
+// Background Workers
 builder.Services.AddHostedService<AuctionClosingWorker>();
+builder.Services.AddHostedService<AuctionActivationWorker>();
 
-// 9. Inyección de servicios de notificación en tiempo real (SignalR)
+// Inyección de servicios de notificación en tiempo real (SignalR)
 builder.Services.AddScoped<IAuctionNotificationService, AuctionNotificationService>();
 
-// 10. Controladores, SignalR, Swagger con soporte para Bearer Token y CORS
+// Controladores, SignalR, Swagger con soporte para Bearer Token y CORS
 builder.Services.AddControllers()
     .ConfigureApiBehaviorOptions(options =>
     {
@@ -153,6 +172,7 @@ builder.Services.AddControllers()
             return new Microsoft.AspNetCore.Mvc.BadRequestObjectResult(response);
         };
     });
+
 builder.Services.AddSignalR();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -198,7 +218,26 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// 11. Pipeline HTTP
+// Inicialización de base de datos y sembrado dinámico al iniciar
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<ApplicationDbContext>();
+        var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+
+        await context.Database.MigrateAsync();
+        await DbInitializer.SeedAsync(context, userManager);
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Ocurrió un error al aplicar migraciones o sembrar la base de datos.");
+    }
+}
+
+// Pipeline HTTP
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -207,7 +246,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-app.UseHttpsRedirection();
 
 app.UseCors("AllowAll");
 
@@ -218,4 +256,4 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapHub<AuctionHub>("/auctionHub");
 
-app.Run();
+await app.RunAsync();

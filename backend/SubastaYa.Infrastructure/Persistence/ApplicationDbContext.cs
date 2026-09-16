@@ -44,7 +44,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
         modelBuilder.Entity<TransaccionLedger>().ToTable("TRANSACCION_LEDGER");
         modelBuilder.Entity<AuditoriaLog>().ToTable("AUDITORIA_LOG");
 
-        // Precisiones numéricas monetarias
+        // 4. Precisiones numéricas monetarias (decimal 18,2)
         modelBuilder.Entity<Billetera>().Property(b => b.saldo_total).HasPrecision(18, 2);
         modelBuilder.Entity<Billetera>().Property(b => b.saldo_retenido).HasPrecision(18, 2);
         modelBuilder.Entity<Subasta>().Property(s => s.precio_base).HasPrecision(18, 2);
@@ -52,27 +52,70 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
         modelBuilder.Entity<Puja>().Property(p => p.monto).HasPrecision(18, 2);
         modelBuilder.Entity<TransaccionLedger>().Property(t => t.monto).HasPrecision(18, 2);
 
-        // Columna calculada: disponible = total - retenido
+        // 5. Columna calculada: saldo_disponible = saldo_total - saldo_retenido
         modelBuilder.Entity<Billetera>()
             .Property(b => b.saldo_disponible)
             .HasPrecision(18, 2)
             .HasComputedColumnSql("[saldo_total] - [saldo_retenido]", stored: true);
 
-        // Control de concurrencia optimista (RowVersion)
+        // 6. Control de concurrencia optimista (RowVersion / Timestamp)
         modelBuilder.Entity<Billetera>().Property(b => b.version).IsRowVersion();
         modelBuilder.Entity<Subasta>().Property(s => s.version).IsRowVersion();
 
-        // Configuración de Relaciones de Dominio
-        modelBuilder.Entity<Usuario>().HasOne(u => u.Billetera).WithOne(b => b.Usuario).HasForeignKey<Billetera>(b => b.usuario_id).OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<Subasta>().HasOne(s => s.Vendedor).WithMany(u => u.SubastasCreadas).HasForeignKey(s => s.vendedor_id).OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<Subasta>().HasOne(s => s.Categoria).WithMany(c => c.Subastas).HasForeignKey(s => s.categoria_id).OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<Puja>().HasOne(p => p.Subasta).WithMany(s => s.Pujas).HasForeignKey(p => p.subasta_id).OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<Puja>().HasOne(p => p.Comprador).WithMany(u => u.Pujas).HasForeignKey(p => p.comprador_id).OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<TransaccionLedger>().HasOne(t => t.Billetera).WithMany(b => b.Transacciones).HasForeignKey(t => t.billetera_id).OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<TransaccionLedger>().HasOne(t => t.Subasta).WithMany(s => s.TransaccionesLedger).HasForeignKey(t => t.subasta_id).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<AuditoriaLog>().HasOne(a => a.Usuario).WithMany(u => u.AuditoriaLogs).HasForeignKey(a => a.usuario_id).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+        // 7. Relaciones de Dominio y claves foráneas
+        modelBuilder.Entity<Usuario>()
+            .HasOne(u => u.Billetera)
+            .WithOne(b => b.Usuario)
+            .HasForeignKey<Billetera>(b => b.usuario_id)
+            .OnDelete(DeleteBehavior.Restrict);
 
-        // Sembradura de datos iniciales
-        DatabaseSeeder.Seed(modelBuilder);
+        modelBuilder.Entity<Subasta>()
+            .HasOne(s => s.Vendedor)
+            .WithMany(u => u.SubastasCreadas)
+            .HasForeignKey(s => s.vendedor_id)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Subasta>()
+            .HasOne(s => s.Categoria)
+            .WithMany(c => c.Subastas)
+            .HasForeignKey(s => s.categoria_id)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Puja>()
+            .HasOne(p => p.Subasta)
+            .WithMany(s => s.Pujas)
+            .HasForeignKey(p => p.subasta_id)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Puja>()
+            .HasOne(p => p.Comprador)
+            .WithMany(u => u.Pujas)
+            .HasForeignKey(p => p.comprador_id)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<TransaccionLedger>()
+            .HasOne(t => t.Billetera)
+            .WithMany(b => b.Transacciones)
+            .HasForeignKey(t => t.billetera_id)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<TransaccionLedger>()
+            .HasOne(t => t.Subasta)
+            .WithMany(s => s.TransaccionesLedger)
+            .HasForeignKey(t => t.subasta_id)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<AuditoriaLog>()
+            .HasOne(a => a.Usuario)
+            .WithMany(u => u.AuditoriaLogs)
+            .HasForeignKey(a => a.usuario_id)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // 8. Sembradura de datos
+        // Se comenta HasData() para que las fechas no queden congeladas en las migraciones.
+        // El sembrado dinámico en arranque se realiza mediante DbInitializer.SeedAsync(context).
+        // DatabaseSeeder.Seed(modelBuilder);
     }
 }

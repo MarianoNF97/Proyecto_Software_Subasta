@@ -118,4 +118,3 @@ public class AuthController : ControllerBase
         return Ok(new AuthResponseDto(domainUser.id, identityUser.Email!, identityUser.NombreCompleto, token));
     }
 }
-}

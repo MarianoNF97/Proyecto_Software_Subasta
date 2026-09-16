@@ -19,4 +19,15 @@ public class AuctionResponseDto
     public DateTime EndDate { get; set; }
     public string Status { get; set; } = string.Empty;
     public int? WinningBidderId { get; set; }
+    public int? HighestBidderId => WinningBidderId;
+    public List<BidItemDto> Bids { get; set; } = new();
+}
+
+public class BidItemDto
+{
+    public int Id { get; set; }
+    public int BuyerId { get; set; }
+    public string BuyerName { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public DateTime Time { get; set; }
 }

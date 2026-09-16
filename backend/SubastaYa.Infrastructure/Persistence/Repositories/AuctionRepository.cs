@@ -24,6 +24,7 @@ public class AuctionRepository : IAuctionRepository
             .Include(s => s.Vendedor)
             .Include(s => s.Categoria)
             .Include(s => s.Pujas)
+                .ThenInclude(p => p.Comprador)
             .AsNoTracking()
             .AsQueryable();
 
@@ -54,6 +55,7 @@ public class AuctionRepository : IAuctionRepository
             .Include(s => s.Vendedor)
             .Include(s => s.Categoria)
             .Include(s => s.Pujas)
+                .ThenInclude(p => p.Comprador)
             .AsNoTracking()
             .FirstOrDefaultAsync(s => s.id == id, cancellationToken);
     }
@@ -62,6 +64,7 @@ public class AuctionRepository : IAuctionRepository
     {
         return await _context.Subastas
             .Include(s => s.Pujas)
+                .ThenInclude(p => p.Comprador)
             .FirstOrDefaultAsync(s => s.id == id, cancellationToken);
     }
 
@@ -86,6 +89,7 @@ public class AuctionRepository : IAuctionRepository
             .Include(s => s.Vendedor)
             .Include(s => s.Categoria)
             .Include(s => s.Pujas)
+                .ThenInclude(p => p.Comprador)
             .AsNoTracking()
             .Where(s => s.vendedor_id == sellerId)
             .OrderByDescending(s => s.fecha_inicio)
@@ -98,6 +102,7 @@ public class AuctionRepository : IAuctionRepository
             .Include(s => s.Vendedor)
             .Include(s => s.Categoria)
             .Include(s => s.Pujas)
+                .ThenInclude(p => p.Comprador)
             .AsNoTracking()
             .Where(s => s.Pujas.Any(p => p.comprador_id == userId))
             .OrderByDescending(s => s.fecha_fin)
@@ -107,6 +112,7 @@ public class AuctionRepository : IAuctionRepository
     public async Task<IEnumerable<Puja>> GetBidsByAuctionIdAsync(int auctionId, CancellationToken cancellationToken = default)
     {
         return await _context.Pujas
+            .Include(p => p.Comprador)
             .AsNoTracking()
             .Where(p => p.subasta_id == auctionId)
             .OrderByDescending(p => p.fecha_puja)

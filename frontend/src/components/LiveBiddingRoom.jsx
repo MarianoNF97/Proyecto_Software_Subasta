@@ -11,11 +11,11 @@ const LiveBiddingRoom = ({ wallet }) => {
   const { user } = useAuth();
   const userId = user?.id;
   
-  // 1. Estado de la subasta (obtenida del backend)
+  // 1. Estado de la subasta
   const [auction, setAuction] = useState(null);
   const [isLoadingAuction, setIsLoadingAuction] = useState(true);
 
-  // 2. Estado interactivo (Actualizado por SignalR)
+  // 2. Estado interactivo en vivo
   const [currentPrice, setCurrentPrice] = useState(0);
   const [endDate, setEndDate] = useState(null);
   const [bidsHistory, setBidsHistory] = useState([]);
@@ -28,24 +28,43 @@ const LiveBiddingRoom = ({ wallet }) => {
   const [bidAmount, setBidAmount] = useState(0);
 
   // ==========================================
-  // FETCH DE LA SUBASTA (Independiente)
+  // 1. FETCH DE LA SUBASTA (Inicialización)
   // ==========================================
   useEffect(() => {
     let isMounted = true;
     const fetchAuction = async () => {
       try {
         const response = await apiClient.get(`/auctions/${id}`);
-        if (isMounted) {
-          setAuction(response.data);
-          setCurrentPrice(response.data.currentPrice);
-          setEndDate(response.data.endDate);
+        if (!isMounted) return;
+
+        const data = response.data;
+        setAuction(data);
+        setCurrentPrice(data.currentPrice ?? data.precioActual ?? 0);
+        setEndDate(data.endDate ?? data.fechaFin);
+
+        // Mapear historial inicial de pujas
+        const rawBids = data.bids || data.pujas || [];
+        const formattedBids = rawBids.map(b => ({
+          userId: b.buyerId || b.compradorId || b.comprador_id || b.userId,
+          userName: b.buyerName || b.compradorNombre || b.userName,
+          amount: b.amount ?? b.monto,
+          time: b.time || b.fechaPuja || b.fecha_puja || b.createdAt || new Date().toISOString()
+        })).sort((a, b) => new Date(b.time) - new Date(a.time));
+
+        setBidsHistory(formattedBids);
+
+        // Determinar quién va liderando actualmente
+        const topBidder = data.highestBidderId || data.compradorGanadorId || formattedBids[0]?.userId;
+        if (topBidder) {
+          setLatestBidderId(topBidder);
         }
       } catch (error) {
-        console.error('Error fetching auction:', error);
+        console.error('Error al cargar la subasta:', error);
       } finally {
         if (isMounted) setIsLoadingAuction(false);
       }
     };
+
     fetchAuction();
     return () => { isMounted = false; };
   }, [id]);
@@ -55,10 +74,10 @@ const LiveBiddingRoom = ({ wallet }) => {
   }, [suggestedBid]);
 
   // ==========================================
-  // INTEGRACIÓN DE SIGNALR
+  // 2. INTEGRACIÓN DE SIGNALR (Tiempo Real)
   // ==========================================
   useEffect(() => {
-    if (!auction) return; // Esperar a que exista la subasta
+    if (!auction) return;
 
     const hubUrl = (import.meta.env.VITE_API_URL || '/api').replace('/api', '/auctionHub');
     
@@ -72,7 +91,6 @@ const LiveBiddingRoom = ({ wallet }) => {
       try {
         await connection.start();
         console.log('✅ Conectado a SignalR - Sala en Vivo');
-        // Unirse al grupo específico de esta subasta
         await connection.invoke('JoinAuctionGroup', id.toString());
       } catch (err) {
         console.error('❌ Error al conectar a SignalR:', err);
@@ -83,18 +101,33 @@ const LiveBiddingRoom = ({ wallet }) => {
 
     connection.on('ReceiveNewBid', (newBid) => {
       console.log('📬 Nueva puja recibida:', newBid);
-      setCurrentPrice(newBid.amount);
-      setLatestBidderId(newBid.userId);
       
-      // Agregar al inicio del historial
+      const newAmount = newBid.amount ?? newBid.monto;
+      const newUserId = newBid.userId ?? newBid.buyerId ?? newBid.compradorId;
+      const newUserName = newBid.userName ?? newBid.buyerName ?? newBid.compradorNombre;
+
+      setCurrentPrice(newAmount);
+
+      // Alerta si el usuario actual estaba liderando y fue superado
+      setLatestBidderId(prevLeader => {
+        if (prevLeader === userId && newUserId !== userId) {
+          toast.error(`¡Has sido superado! Nueva oferta: ${formatCurrency(newAmount)}`);
+        }
+        return newUserId;
+      });
+
+      // Agregar nueva oferta al historial reactivo
       setBidsHistory(prev => [{
-        userId: newBid.userId,
-        amount: newBid.amount,
-        time: newBid.timestamp || new Date().toISOString()
+        userId: newUserId,
+        userName: newUserName,
+        amount: newAmount,
+        time: newBid.timestamp || newBid.fechaPuja || new Date().toISOString()
       }, ...prev]);
       
-      if (newBid.newEndDate) {
+      // Alerta de regla Anti-sniping si hubo extensión de tiempo
+      if (newBid.newEndDate || newBid.timeExtended) {
         setEndDate(newBid.newEndDate);
+        toast.info("⏱️ ¡Regla anti-sniping! Se extendió el tiempo de la subasta.");
       }
     });
 
@@ -104,52 +137,73 @@ const LiveBiddingRoom = ({ wallet }) => {
         connection.stop();
       }
     };
-  }, [auction?.id, id]);
+  }, [auction?.id, id, userId]);
 
   // ==========================================
-  // LÓGICA DE NEGOCIO Y RENDERIZADO
+  // 3. REGLAS DE NEGOCIO Y ESTADOS
   // ==========================================
-  const availableBalance = wallet?.availableBalance || 0;
+  const availableBalance = wallet?.availableBalance ?? wallet?.saldoDisponible ?? 0;
   
-  // Utilizamos el tiempo local como serverTime fallback
   const serverTimeRef = useRef(new Date().toISOString());
   const timeLeft = useCountdown(endDate, serverTimeRef.current);
-  // Asumimos que el backend retorna "Activa" o "Cerrada", o evaluamos el tiempo
-  const isEnded = timeLeft === 0 || status === 'Cerrada' || status === 'CERRADA';
-  const isEndingSoon = timeLeft > 0 && timeLeft < 60;
+
+  const isScheduled = status?.toUpperCase() === 'PROGRAMADA';
+  const isEnded = timeLeft === 0 || status?.toUpperCase() === 'FINALIZADA' || status?.toUpperCase() === 'CERRADA' || status?.toUpperCase() === 'DESIERTA';
+  const isEndingSoon = !isScheduled && timeLeft > 0 && timeLeft < 60;
 
   const hasInsufficientFunds = bidAmount > availableBalance;
-  const isButtonDisabled = isEnded || hasInsufficientFunds || bidAmount < suggestedBid || isBidding;
+  const userHasParticipated = bidsHistory.some(b => b.userId === userId);
+  const isButtonDisabled = isEnded || isScheduled || hasInsufficientFunds || bidAmount < suggestedBid || isBidding;
 
+  // Enviar oferta al backend
   const handleBidSubmit = async (e) => {
     e.preventDefault();
     if (isButtonDisabled) return;
 
     setIsBidding(true);
     try {
-      const response = await apiClient.post('/auctions/bids', {
+      // Rutas RESTful Nivel 2: compatibilidad con /bids o /auctions/bids
+      let response;
+      const payload = {
         auctionId: parseInt(id),
         buyerId: userId,
         amount: parseFloat(bidAmount)
-      });
+      };
+
+      try {
+        response = await apiClient.post('/bids', payload);
+      } catch (err) {
+        if (err.response?.status === 404) {
+          response = await apiClient.post('/auctions/bids', payload);
+        } else {
+          throw err;
+        }
+      }
       
-      if (response.status === 200 || response.status === 201 || response.status === 204) {
+      if (response.status === 200 || response.status === 201) {
         toast.success("Oferta enviada exitosamente");
       }
     } catch (error) {
       console.error('Error al pujar:', error);
-      // Confiamos en el interceptor global de Axios para mostrar los Toasts de error (ej: 409 Conflict)
+      const serverMessage = error.response?.data?.message || error.response?.data?.detail;
+      toast.error(serverMessage || "No se pudo procesar la oferta.");
     } finally {
       setIsBidding(false);
     }
   };
 
+  // Formato de temporizador: Xd Xh Xm si > 24 horas
   const formatTime = (seconds) => {
     if (seconds <= 0) return '00:00:00';
-    const h = Math.floor(seconds / 3600);
+    const d = Math.floor(seconds / 86400);
+    const h = Math.floor((seconds % 86400) / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
     const pad = (num) => num.toString().padStart(2, '0');
+
+    if (d > 0) {
+      return `${d}d ${pad(h)}h ${pad(m)}m`;
+    }
     return `${pad(h)}:${pad(m)}:${pad(s)}`;
   };
 
@@ -163,7 +217,7 @@ const LiveBiddingRoom = ({ wallet }) => {
     return (
       <div className="flex justify-center items-center py-40">
         <svg className="animate-spin h-12 w-12 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <circle className="opacity-25" cx="12" cy="12" r="10" strokeWidth="4"></circle>
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
       </div>
@@ -182,8 +236,11 @@ const LiveBiddingRoom = ({ wallet }) => {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="relative h-96 w-full bg-gray-100">
             <img 
-              src={imageUrl || 'https://via.placeholder.com/800x600?text=Subasta'} 
+              src={imageUrl || 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=800&q=80'} 
               alt={title} 
+              onError={(e) => {
+                e.currentTarget.src = 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=800&q=80';
+              }}
               className="w-full h-full object-cover"
             />
             <span className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-4 py-2 rounded-lg text-sm font-bold text-gray-800 shadow-sm uppercase tracking-wider">
@@ -211,7 +268,9 @@ const LiveBiddingRoom = ({ wallet }) => {
                 <div key={index} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-100 animate-fade-in">
                   <div className="flex items-center gap-3">
                     <span className="font-mono text-gray-400 text-xs">{new Date(bid.time).toLocaleTimeString()}</span>
-                    <span className="font-semibold text-gray-700">Usuario #{bid.userId}</span>
+                    <span className="font-semibold text-gray-700">
+                      {bid.userName ? bid.userName : (bid.userId === userId ? 'Tú (Oferta Actual)' : `Usuario #${bid.userId}`)}
+                    </span>
                   </div>
                   <span className="font-bold text-gray-900">{formatCurrency(bid.amount)}</span>
                 </div>
@@ -224,30 +283,37 @@ const LiveBiddingRoom = ({ wallet }) => {
       {/* COLUMNA DERECHA: Panel de Acción */}
       <div className="lg:col-span-4 flex flex-col gap-6 sticky top-8">
         
-        {/* Temporizador y Liderazgo */}
+        {/* Temporizador y Badges de Estado */}
         <div className={`p-8 rounded-3xl shadow-sm border text-center transition-colors flex flex-col items-center justify-center
-          ${isEnded ? 'bg-gray-100 border-gray-200' : isEndingSoon ? 'bg-yellow-50 border-yellow-300 shadow-yellow-100/50' : 'bg-blue-50 border-blue-100'}
+          ${isEnded 
+            ? 'bg-gray-100 border-gray-200' 
+            : isScheduled
+              ? 'bg-purple-50 border-purple-200'
+              : isEndingSoon 
+                ? 'bg-yellow-50 border-yellow-300 shadow-yellow-100/50' 
+                : 'bg-blue-50 border-blue-100'
+          }
         `}>
           <span className={`text-sm font-bold tracking-widest uppercase mb-2 
-            ${isEnded ? 'text-gray-500' : isEndingSoon ? 'text-yellow-600' : 'text-blue-500'}`}>
-            {isEnded ? 'Subasta Finalizada' : isEndingSoon ? '¡Últimos Segundos!' : 'Tiempo Restante'}
+            ${isEnded ? 'text-gray-500' : isScheduled ? 'text-purple-600' : isEndingSoon ? 'text-yellow-600' : 'text-blue-500'}`}>
+            {isEnded ? 'Subasta Finalizada' : isScheduled ? 'Subasta Programada' : isEndingSoon ? '¡Últimos Segundos!' : 'Tiempo Restante'}
           </span>
-          <div className={`text-5xl md:text-6xl font-black font-mono tracking-tighter mb-4
-            ${isEnded ? 'text-gray-400' : isEndingSoon ? 'text-red-600 animate-pulse' : 'text-blue-700'}`}>
+          <div className={`text-4xl md:text-5xl font-black font-mono tracking-tighter mb-4
+            ${isEnded ? 'text-gray-400' : isScheduled ? 'text-purple-700' : isEndingSoon ? 'text-red-600 animate-pulse' : 'text-blue-700'}`}>
             {formatTime(timeLeft)}
           </div>
           
-          {/* Alerta dinámica de Liderazgo */}
-          {!isEnded && latestBidderId && (
+          {/* Indicador de Liderando / Superado */}
+          {!isEnded && !isScheduled && latestBidderId && (
             latestBidderId === userId ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-100 text-green-700 font-bold text-sm">
-                ■ Liderando
+              <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-green-100 text-green-700 font-bold text-sm shadow-sm border border-green-200">
+                ● Vas Liderando
               </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-100 text-orange-700 font-bold text-sm">
-                ■ Superado (Outbid)
+            ) : userHasParticipated ? (
+              <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-red-100 text-red-700 font-bold text-sm shadow-sm border border-red-200 animate-pulse">
+                ▲ Fuiste Superado (Outbid)
               </span>
-            )
+            ) : null
           )}
         </div>
 
@@ -260,52 +326,58 @@ const LiveBiddingRoom = ({ wallet }) => {
             </span>
           </div>
 
-          <form onSubmit={handleBidSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-semibold text-gray-700">Tu Oferta (Mínimo: {formatCurrency(suggestedBid)})</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">$</span>
-                <input 
-                  type="number"
-                  value={bidAmount}
-                  onChange={(e) => setBidAmount(Number(e.target.value))}
-                  min={suggestedBid}
-                  step={minIncrement || 1}
-                  disabled={isEnded}
-                  className="w-full pl-8 pr-4 py-4 rounded-xl border border-gray-200 text-xl font-bold text-gray-800 bg-gray-50 focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all disabled:opacity-50"
-                />
-              </div>
-              
-              {hasInsufficientFunds && !isEnded && (
-                <p className="text-red-500 text-sm font-medium mt-1">
-                  Saldo disponible insuficiente ({formatCurrency(availableBalance)})
-                </p>
-              )}
+          {isScheduled ? (
+            <div className="bg-purple-50 border border-purple-200 text-purple-800 p-4 rounded-xl text-center font-medium text-sm">
+              Esta subasta está programada. Las pujas se habilitarán automáticamente al iniciar el evento.
             </div>
+          ) : (
+            <form onSubmit={handleBidSubmit} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-semibold text-gray-700">Tu Oferta (Mínimo: {formatCurrency(suggestedBid)})</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">$</span>
+                  <input 
+                    type="number"
+                    value={bidAmount}
+                    onChange={(e) => setBidAmount(Number(e.target.value))}
+                    min={suggestedBid}
+                    step={minIncrement || 1}
+                    disabled={isEnded || isScheduled}
+                    className="w-full pl-8 pr-4 py-4 rounded-xl border border-gray-200 text-xl font-bold text-gray-800 bg-gray-50 focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all disabled:opacity-50"
+                  />
+                </div>
+                
+                {hasInsufficientFunds && !isEnded && (
+                  <p className="text-red-500 text-sm font-medium mt-1">
+                    Saldo disponible insuficiente ({formatCurrency(availableBalance)})
+                  </p>
+                )}
+              </div>
 
-            <button 
-              type="submit"
-              disabled={isButtonDisabled}
-              className={`w-full py-4 rounded-xl text-xl font-black uppercase tracking-wider transition-all shadow-md flex items-center justify-center
-                ${isEnded 
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none' 
-                  : isButtonDisabled 
-                    ? 'bg-red-400 text-white cursor-not-allowed shadow-none'
-                    : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white hover:-translate-y-1 hover:shadow-lg'
-                }
-              `}
-            >
-              {isBidding ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Procesando...
-                </>
-              ) : isEnded ? 'Subasta Cerrada' : 'Ofertar Ahora'}
-            </button>
-          </form>
+              <button 
+                type="submit"
+                disabled={isButtonDisabled}
+                className={`w-full py-4 rounded-xl text-xl font-black uppercase tracking-wider transition-all shadow-md flex items-center justify-center
+                  ${isEnded 
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none' 
+                    : isButtonDisabled 
+                      ? 'bg-gray-400 text-white cursor-not-allowed shadow-none'
+                      : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white hover:-translate-y-0.5 hover:shadow-lg'
+                  }
+                `}
+              >
+                {isBidding ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Procesando...
+                  </>
+                ) : isEnded ? 'Subasta Cerrada' : 'Ofertar Ahora'}
+              </button>
+            </form>
+          )}
         </div>
 
       </div>

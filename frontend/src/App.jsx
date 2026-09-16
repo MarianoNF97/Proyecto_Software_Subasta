@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
 import { Toaster } from 'sonner';
 
 import WalletMetrics from './components/WalletMetrics';
@@ -34,7 +35,7 @@ function App() {
     availableBalance: 0
   });
 
-  const fetchMetrics = async () => {
+  const fetchMetrics = useCallback(async () => {
     try {
       if (!user?.id) return; 
 
@@ -43,7 +44,35 @@ function App() {
     } catch (error) {
       console.error('Error al obtener los saldos:', error);
     }
-  };
+  }, [user?.id]);
+
+  // ==========================================
+  // ESCUCHA GLOBAL DE SIGNALR (Billetera en vivo)
+  // ==========================================
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const hubUrl = (import.meta.env.VITE_API_URL || '/api').replace('/api', '/auctionHub');
+    
+    const connection = new HubConnectionBuilder()
+      .withUrl(hubUrl)
+      .configureLogging(LogLevel.Warning)
+      .withAutomaticReconnect()
+      .build();
+
+    connection.start()
+      .then(() => {
+        // Escucha el evento emitido cuando se retienen o liberan fondos
+        connection.on('WalletUpdated', () => {
+          fetchMetrics();
+        });
+      })
+      .catch((err) => console.error('Error conectando SignalR en App:', err));
+
+    return () => {
+      connection.stop();
+    };
+  }, [user?.id, fetchMetrics]);
 
   const [auctions, setAuctions] = useState([]);
   const [isLoadingAuctions, setIsLoadingAuctions] = useState(true);
@@ -56,9 +85,6 @@ function App() {
   const fetchAuctions = async () => {
     setIsLoadingAuctions(true);
     try {
-      // El backend devuelve { id, title, currentPrice, etc. }
-      // Fuente API: backend/SubastaYa.Api/Controllers/AuctionsController.cs
-      // Método: GET /auctions
       const params = new URLSearchParams();
       if (filters.status) params.append('status', filters.status);
       if (filters.categoryId) params.append('categoryId', filters.categoryId);
@@ -75,9 +101,6 @@ function App() {
 
   const fetchCategories = async () => {
     try {
-      // Fuente API: backend/SubastaYa.Api/Controllers/CategoriesController.cs
-      // DTO C#: backend/SubastaYa.Application/DTOs/CategoryDto.cs
-      // Método: GET /categories
       const response = await apiClient.get('/categories');
       setCategories(response.data);
     } catch (error) {
@@ -88,7 +111,7 @@ function App() {
   useEffect(() => {
     fetchMetrics();
     fetchCategories();
-  }, [user?.id]);
+  }, [fetchMetrics]);
 
   useEffect(() => {
     fetchAuctions();
@@ -98,7 +121,7 @@ function App() {
     <>
       <BrowserRouter>
         <Routes>
-          {/* Rutas Públicas sin Layout */}
+          {/* Rutas Públicas */}
           <Route path="/login" element={<LoginForm />} />
           <Route path="/register" element={<RegisterForm />} />
 
@@ -183,7 +206,7 @@ function App() {
               </section>
             } />
 
-            {/* Rutas Protegidas dentro de MainLayout */}
+            {/* Rutas Protegidas */}
             <Route element={<ProtectedRoute />}>
               
               <Route path="/billetera" element={
@@ -195,7 +218,8 @@ function App() {
                     <DepositForm onDepositSuccess={fetchMetrics} />
                   </section>
                   <section>
-                    <TransactionHistory />
+                    {/* El key dinámico fuerza a TransactionHistory a recargar sus movimientos al variar el saldo */}
+                    <TransactionHistory key={`${metrics.availableBalance}-${metrics.lockedBalance}`} />
                   </section>
                 </div>
               } />
@@ -219,4 +243,3 @@ function App() {
 }
 
 export default App;
-

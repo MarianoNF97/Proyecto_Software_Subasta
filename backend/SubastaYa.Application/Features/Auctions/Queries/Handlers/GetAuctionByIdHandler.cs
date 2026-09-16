@@ -27,9 +27,9 @@ public class GetAuctionByIdHandler : IQueryHandler<GetAuctionByIdQuery, AuctionR
         {
             Id = auction.id,
             SellerId = auction.vendedor_id,
-            SellerName = auction.Vendedor.nombre,
+            SellerName = auction.Vendedor?.nombre ?? "Vendedor",
             CategoryId = auction.categoria_id,
-            CategoryName = auction.Categoria.nombre,
+            CategoryName = auction.Categoria?.nombre ?? "General",
             Title = auction.titulo,
             Description = auction.descripcion,
             ImageUrl = auction.url_imagen,
@@ -41,7 +41,18 @@ public class GetAuctionByIdHandler : IQueryHandler<GetAuctionByIdQuery, AuctionR
             StartDate = auction.fecha_inicio,
             EndDate = auction.fecha_fin,
             Status = auction.estado,
-            WinningBidderId = highestBid?.comprador_id
+            WinningBidderId = highestBid?.comprador_id,
+            Bids = auction.Pujas
+                .OrderByDescending(p => p.fecha_puja)
+                .Select(p => new BidItemDto
+                {
+                    Id = p.id,
+                    BuyerId = p.comprador_id,
+                    BuyerName = p.Comprador?.nombre ?? $"Usuario #{p.comprador_id}",
+                    Amount = p.monto,
+                    Time = p.fecha_puja
+                })
+                .ToList()
         };
     }
 }

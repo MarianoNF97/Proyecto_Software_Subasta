@@ -13,7 +13,12 @@ public class AuctionRepository : IAuctionRepository
         _context = context;
     }
 
-    public async Task<IEnumerable<Subasta>> GetAllAsync(string? status, int? categoryId, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Subasta>> GetAllAsync(
+        string? status,
+        int? categoryId,
+        decimal? minPrice = null,
+        decimal? maxPrice = null,
+        CancellationToken cancellationToken = default)
     {
         var query = _context.Subastas
             .Include(s => s.Vendedor)
@@ -28,7 +33,19 @@ public class AuctionRepository : IAuctionRepository
         if (categoryId.HasValue)
             query = query.Where(s => s.categoria_id == categoryId.Value);
 
-        return await query.ToListAsync(cancellationToken);
+        if (minPrice.HasValue)
+        {
+            query = query.Where(s =>
+                (s.Pujas.Any() ? s.Pujas.Max(p => p.monto) : s.precio_base) >= minPrice.Value);
+        }
+
+        if (maxPrice.HasValue)
+        {
+            query = query.Where(s =>
+                (s.Pujas.Any() ? s.Pujas.Max(p => p.monto) : s.precio_base) <= maxPrice.Value);
+        }
+
+        return await query.OrderByDescending(s => s.fecha_inicio).ToListAsync(cancellationToken);
     }
 
     public async Task<Subasta?> GetByIdWithDetailsAsync(int id, CancellationToken cancellationToken = default)
@@ -53,6 +70,13 @@ public class AuctionRepository : IAuctionRepository
         return await _context.Subastas
             .Include(s => s.Pujas)
             .Where(s => s.estado == "ACTIVA" && s.fecha_fin <= DateTime.UtcNow)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IEnumerable<Subasta>> GetScheduledAuctionsToActivateAsync(CancellationToken cancellationToken = default)
+    {
+        return await _context.Subastas
+            .Where(s => s.estado == "PROGRAMADA" && s.fecha_inicio <= DateTime.UtcNow)
             .ToListAsync(cancellationToken);
     }
 

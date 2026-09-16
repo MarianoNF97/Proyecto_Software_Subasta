@@ -13,6 +13,7 @@ public class AuctionResponseDto
     public decimal StartingPrice { get; set; }
     public decimal MinIncrement { get; set; }
     public decimal CurrentPrice { get; set; }
+    public decimal NextMinimumBid { get; set; }
     public int TotalBids { get; set; }
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }

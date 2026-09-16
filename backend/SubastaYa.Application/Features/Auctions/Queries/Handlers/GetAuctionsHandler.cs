@@ -15,26 +15,39 @@ public class GetAuctionsHandler : IQueryHandler<GetAuctionsQuery, IEnumerable<Au
 
     public async Task<IEnumerable<AuctionResponseDto>> HandleAsync(GetAuctionsQuery query, CancellationToken cancellationToken = default)
     {
-        var auctions = await _auctionRepository.GetAllAsync(query.Status, query.CategoryId, cancellationToken);
+        var auctions = await _auctionRepository.GetAllAsync(
+            query.Status,
+            query.CategoryId,
+            query.MinPrice,
+            query.MaxPrice,
+            cancellationToken);
 
-        return auctions.Select(s => new AuctionResponseDto
+        return auctions.Select(s =>
         {
-            Id = s.id,
-            SellerId = s.vendedor_id,
-            SellerName = s.Vendedor.nombre,
-            CategoryId = s.categoria_id,
-            CategoryName = s.Categoria.nombre,
-            Title = s.titulo,
-            Description = s.descripcion,
-            ImageUrl = s.url_imagen,
-            StartingPrice = s.precio_base,
-            MinIncrement = s.incremento_minimo,
-            CurrentPrice = s.Pujas.Any() ? s.Pujas.Max(p => p.monto) : s.precio_base,
-            TotalBids = s.Pujas.Count,
-            StartDate = s.fecha_inicio,
-            EndDate = s.fecha_fin,
-            Status = s.estado,
-            WinningBidderId = s.Pujas.OrderByDescending(p => p.monto).Select(p => (int?)p.comprador_id).FirstOrDefault()
+            var highestBid = s.Pujas.OrderByDescending(p => p.monto).FirstOrDefault();
+            var currentPrice = highestBid != null ? highestBid.monto : s.precio_base;
+            var nextMinimumBid = highestBid != null ? currentPrice + s.incremento_minimo : s.precio_base;
+
+            return new AuctionResponseDto
+            {
+                Id = s.id,
+                SellerId = s.vendedor_id,
+                SellerName = s.Vendedor.nombre,
+                CategoryId = s.categoria_id,
+                CategoryName = s.Categoria.nombre,
+                Title = s.titulo,
+                Description = s.descripcion,
+                ImageUrl = s.url_imagen,
+                StartingPrice = s.precio_base,
+                MinIncrement = s.incremento_minimo,
+                CurrentPrice = currentPrice,
+                NextMinimumBid = nextMinimumBid,
+                TotalBids = s.Pujas.Count,
+                StartDate = s.fecha_inicio,
+                EndDate = s.fecha_fin,
+                Status = s.estado,
+                WinningBidderId = highestBid?.comprador_id
+            };
         });
     }
 }

@@ -36,9 +36,9 @@ public class ExceptionHandlingMiddleware
 
         switch (exception)
         {
-            case UnauthorizedAccessException:
+            case UnauthorizedAccessException unauth:
                 code = HttpStatusCode.Unauthorized;
-                message = exception.Message;
+                message = unauth.Message;
                 break;
 
             case NotFoundException notFound:
@@ -61,11 +61,6 @@ public class ExceptionHandlingMiddleware
             case InvalidOperationException invalidOp:
                 code = HttpStatusCode.BadRequest;
                 message = invalidOp.Message;
-                break;
-                
-            case UnauthorizedAccessException unauth:
-                code = HttpStatusCode.Unauthorized;
-                message = unauth.Message;
                 break;
         }
 

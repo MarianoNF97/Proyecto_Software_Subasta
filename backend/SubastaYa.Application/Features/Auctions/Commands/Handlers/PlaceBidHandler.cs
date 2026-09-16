@@ -1,5 +1,6 @@
 ﻿using SubastaYa.Application.Common.Interfaces;
 using SubastaYa.Application.DTOs;
+using SubastaYa.Application.Exceptions;
 using SubastaYa.Application.Features.Auctions.Commands;
 using SubastaYa.Application.Interfaces;
 using SubastaYa.Application.Interfaces.Repositories;
@@ -42,32 +43,35 @@ public class PlaceBidHandler : ICommandHandler<PlaceBidCommand, BidResponseDto>
         using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
         bool extended = false;
         DateTime newEndDate;
+        var ahoraUtc = DateTime.UtcNow;
 
         try
         {
-            // 1. Validar reglas de negocio y saldo disponible
+            // 1. Obtener la subasta en memoria
+            var subasta = await _auctionRepository.GetByIdWithBidsAsync(command.AuctionId, cancellationToken)
+                ?? throw new NotFoundException($"No se encontró la subasta con ID {command.AuctionId}.");
+
+            // 2. Validar reglas de negocio y saldo disponible
             await _bidValidationService.ValidateBidAsync(command.AuctionId, command.BuyerId, command.Amount, cancellationToken);
 
-            // 2. Procesar retención en escrow y liberación del postor previo
+            // 3. Procesar retención en escrow y liberación del postor previo
             await _bidPaymentService.ProcessBidPaymentAsync(command.AuctionId, command.BuyerId, command.Amount, cancellationToken);
 
-            // 3. Registrar la puja en base de datos
+            // 4. Registrar la puja en base de datos
             var newBid = new Puja
             {
                 subasta_id = command.AuctionId,
                 comprador_id = command.BuyerId,
                 monto = command.Amount,
-                fecha_puja = DateTime.UtcNow
+                fecha_puja = ahoraUtc
             };
             _bidRepository.Add(newBid);
 
-            // 4. Aplicar regla anti-sniping si corresponde
-            extended = await _antiSnipingService.ApplyAntiSnipingRuleAsync(command.AuctionId, command.BuyerId, cancellationToken);
+            // 5. Aplicar regla anti-sniping si corresponde (usando la subasta ya cargada)
+            extended = _antiSnipingService.ApplyAntiSnipingRule(subasta, command.BuyerId, ahoraUtc);
+            newEndDate = subasta.fecha_fin;
 
-            // 5. Confirmar persistencia
-            var subasta = await _auctionRepository.GetByIdWithBidsAsync(command.AuctionId, cancellationToken);
-            newEndDate = subasta?.fecha_fin ?? DateTime.UtcNow;
-
+            // 6. Confirmar persistencia atómica
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
@@ -77,7 +81,7 @@ public class PlaceBidHandler : ICommandHandler<PlaceBidCommand, BidResponseDto>
             throw;
         }
 
-        // 6. Notificar en tiempo real una vez completada la transacción
+        // 7. Notificar en tiempo real una vez completada la transacción
         await _notificationService.NotifyNewBidAsync(command.AuctionId, command.Amount, command.BuyerId, cancellationToken);
 
         if (extended)
@@ -88,7 +92,9 @@ public class PlaceBidHandler : ICommandHandler<PlaceBidCommand, BidResponseDto>
         return new BidResponseDto
         {
             Success = true,
-            Message = "Puja registrada correctamente.",
+            Message = extended
+                ? "Puja registrada. El tiempo de la subasta fue extendido por regla anti-sniping."
+                : "Puja registrada correctamente.",
             NewAmount = command.Amount,
             TimeExtended = extended,
             NewEndDate = newEndDate

@@ -17,10 +17,13 @@ public class AuctionsController : ControllerBase
     public async Task<ActionResult<IEnumerable<AuctionResponseDto>>> GetAll(
         [FromQuery] string? status,
         [FromQuery] int? categoryId,
+        [FromQuery] decimal? minPrice,
+        [FromQuery] decimal? maxPrice,
         [FromServices] GetAuctionsHandler handler,
         CancellationToken cancellationToken)
     {
-        var result = await handler.HandleAsync(new GetAuctionsQuery(status, categoryId), cancellationToken);
+        var query = new GetAuctionsQuery(status, categoryId, minPrice, maxPrice);
+        var result = await handler.HandleAsync(query, cancellationToken);
         return Ok(result);
     }
 
@@ -60,21 +63,6 @@ public class AuctionsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
-    [Authorize]
-    [HttpPost("{id:int}/bids")]
-    public async Task<ActionResult<BidResponseDto>> PlaceBid(
-        int id,
-        [FromBody] PlaceBidCommand command,
-        [FromServices] PlaceBidHandler handler,
-        CancellationToken cancellationToken)
-    {
-        command.AuctionId = id;
-        command.BuyerId = GetCurrentUserId();
-
-        var result = await handler.HandleAsync(command, cancellationToken);
-        return Ok(result);
-    }
-
     private int GetCurrentUserId()
     {
         var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
@@ -88,4 +76,3 @@ public class AuctionsController : ControllerBase
         return userId;
     }
 }
-

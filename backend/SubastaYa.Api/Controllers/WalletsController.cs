@@ -85,11 +85,16 @@ public class WalletsController : ControllerBase
     private int GetCurrentUserId()
     {
         var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                    ?? User.FindFirst("sub")?.Value;
+                    ?? User.FindFirst("sub")?.Value
+                    ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value
+                    ?? User.FindFirst("id")?.Value
+                    ?? User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
 
         if (string.IsNullOrEmpty(claim) || !int.TryParse(claim, out var userId))
         {
-            throw new UnauthorizedAccessException("El token no contiene un identificador de usuario válido.");
+            // Log de diagnóstico para identificar qué claims llegaron en caso de fallo
+            var claimsPresentes = string.Join(", ", User.Claims.Select(c => $"{c.Type}={c.Value}"));
+            throw new UnauthorizedAccessException($"No se encontró identificador válido en el token. Claims recibidos: [{claimsPresentes}]");
         }
 
         return userId;

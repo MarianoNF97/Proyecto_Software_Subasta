@@ -211,14 +211,16 @@ const LiveBiddingRoom = ({ wallet }) => {
   const isScheduled = status?.toUpperCase() === 'PROGRAMADA';
   const isEnded = timeLeft === 0 || status?.toUpperCase() === 'FINALIZADA' || status?.toUpperCase() === 'CERRADA' || status?.toUpperCase() === 'DESIERTA';
   const isEndingSoon = !isScheduled && timeLeft > 0 && timeLeft < 60;
+  const isNotActive = status?.toUpperCase() !== 'ACTIVA';
 
   const hasInsufficientFunds = bidAmount > availableBalance;
   const userHasParticipated = bidsHistory.some(b => b.userId === userId);
-  const isButtonDisabled = isEnded || isScheduled || hasInsufficientFunds || bidAmount < suggestedBid || isBidding;
+  const isButtonDisabled = isNotActive || hasInsufficientFunds || bidAmount < suggestedBid || isBidding;
 
   // Enviar oferta al backend
   const handleBidSubmit = async (e) => {
     e.preventDefault();
+    if (status?.toUpperCase() !== 'ACTIVA') return; // Guardián de seguridad a nivel lógico
     if (isButtonDisabled) return;
 
     setIsBidding(true);
@@ -387,58 +389,53 @@ const LiveBiddingRoom = ({ wallet }) => {
             </span>
           </div>
 
-          {isScheduled ? (
-            <div className="bg-purple-50 border border-purple-200 text-purple-800 p-4 rounded-xl text-center font-medium text-sm">
-              Esta subasta está programada. Las pujas se habilitarán automáticamente al iniciar el evento.
-            </div>
-          ) : (
-            <form onSubmit={handleBidSubmit} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-semibold text-gray-700">Tu Oferta (Mínimo: {formatCurrency(suggestedBid)})</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">$</span>
-                  <input 
-                    type="number"
-                    value={bidAmount}
-                    onChange={(e) => setBidAmount(Number(e.target.value))}
-                    min={suggestedBid}
-                    step={minIncrement || 1}
-                    disabled={isEnded || isScheduled}
-                    className="w-full pl-8 pr-4 py-4 rounded-xl border border-gray-200 text-xl font-bold text-gray-800 bg-gray-50 focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all disabled:opacity-50"
-                  />
-                </div>
-                
-                {hasInsufficientFunds && !isEnded && (
-                  <p className="text-red-500 text-sm font-medium mt-1">
-                    Saldo disponible insuficiente ({formatCurrency(availableBalance)})
-                  </p>
-                )}
+          <form onSubmit={handleBidSubmit} className="flex flex-col gap-4">
+            {isScheduled && (
+              <div className="bg-purple-50 border border-purple-200 text-purple-800 p-4 rounded-xl text-center font-medium text-sm mb-2">
+                Esta subasta está programada. Las pujas se habilitarán automáticamente al iniciar el evento.
               </div>
+            )}
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-gray-700">Tu Oferta (Mínimo: {formatCurrency(suggestedBid)})</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">$</span>
+                <input 
+                  type="number"
+                  value={bidAmount}
+                  onChange={(e) => setBidAmount(Number(e.target.value))}
+                  min={suggestedBid}
+                  step={minIncrement || 1}
+                  disabled={isNotActive}
+                  placeholder={isNotActive ? "No disponible" : ""}
+                  className="w-full pl-8 pr-4 py-4 rounded-xl border border-gray-200 text-xl font-bold text-gray-800 bg-gray-50 focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400"
+                />
+              </div>
+              
+              {hasInsufficientFunds && !isNotActive && (
+                <p className="text-red-500 text-sm font-medium mt-1">
+                  Saldo disponible insuficiente ({formatCurrency(availableBalance)})
+                </p>
+              )}
+            </div>
 
-              <button 
-                type="submit"
-                disabled={isButtonDisabled}
-                className={`w-full py-4 rounded-xl text-xl font-black uppercase tracking-wider transition-all shadow-md flex items-center justify-center
-                  ${isEnded 
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none' 
-                    : isButtonDisabled 
-                      ? 'bg-gray-400 text-white cursor-not-allowed shadow-none'
-                      : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white hover:-translate-y-0.5 hover:shadow-lg'
-                  }
-                `}
-              >
-                {isBidding ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Procesando...
-                  </>
-                ) : isEnded ? 'Subasta Cerrada' : 'Ofertar Ahora'}
-              </button>
-            </form>
-          )}
+            <button 
+              type="submit"
+              disabled={isButtonDisabled}
+              className="w-full py-4 rounded-xl text-xl font-black uppercase tracking-wider transition-all shadow-md flex items-center justify-center bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 disabled:hover:translate-y-0 disabled:shadow-none"
+            >
+              {isBidding ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Procesando...
+                </>
+              ) : status?.toUpperCase() === 'FINALIZADA' || status?.toUpperCase() === 'DESIERTA' ? 'Subasta Finalizada' :
+                  status?.toUpperCase() === 'PROGRAMADA' ? 'Aún no inicia' :
+                  'Ofertar'}
+            </button>
+          </form>
         </div>
 
       </div>

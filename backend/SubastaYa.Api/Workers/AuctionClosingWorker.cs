@@ -1,5 +1,6 @@
 ﻿using SubastaYa.Application.Features.Auctions.Commands;
 using SubastaYa.Application.Features.Auctions.Commands.Handlers;
+using SubastaYa.Application.Interfaces.Services;
 
 namespace SubastaYa.Api.Workers;
 
@@ -24,8 +25,20 @@ public class AuctionClosingWorker : BackgroundService
             try
             {
                 using var scope = _serviceProvider.CreateScope();
-                var handler = scope.ServiceProvider.GetRequiredService<CloseExpiredAuctionsHandler>();
 
+                // 1. Activar subastas programadas cuya fecha de inicio ya se cumplió
+                var activationService = scope.ServiceProvider.GetService<IAuctionActivationService>();
+                if (activationService != null)
+                {
+                    int activatedCount = await activationService.ActivateScheduledAuctionsAsync(stoppingToken);
+                    if (activatedCount > 0)
+                    {
+                        _logger.LogInformation("Activación automática: {Count} subastas pasaron a estado ACTIVA.", activatedCount);
+                    }
+                }
+
+                // 2. Cerrar y liquidar subastas activas vencidas
+                var handler = scope.ServiceProvider.GetRequiredService<CloseExpiredAuctionsHandler>();
                 int closedCount = await handler.HandleAsync(new CloseExpiredAuctionsCommand(), stoppingToken);
 
                 if (closedCount > 0)

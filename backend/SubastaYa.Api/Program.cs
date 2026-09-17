@@ -22,6 +22,8 @@ using SubastaYa.Infrastructure.Persistence.Seeders;
 using System.Data;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,7 +34,7 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 
-// 1. Configuración de ASP.NET Core Identity (sin AddSignInManager para no sobreescribir el esquema JWT por cookies)
+// 1. ASP.NET Core Identity
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
 {
     options.Password.RequireDigit = false;
@@ -47,16 +49,16 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
-// 2. Desactivar mapeo automático de claims XML/SOAP para respetar los claims directos (sub, name, role)
+// 2. Desactivar mapeo automático de claims
 JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 
-// 3. Configuración explícita de Autenticación JWT y validación Fail-Fast
+// 3. Autenticación JWT
 var jwtSection = builder.Configuration.GetSection("JwtSettings");
 var secret = jwtSection["Secret"];
 
 if (string.IsNullOrWhiteSpace(secret) || secret.Length < 32)
 {
-    throw new InvalidOperationException("Configuración inválida: 'JwtSettings:Secret' no fue configurado o tiene una longitud menor a 32 caracteres.");
+    throw new InvalidOperationException("Configuración inválida: 'JwtSettings:Secret' no configurado o menor a 32 caracteres.");
 }
 
 var secretKey = Encoding.UTF8.GetBytes(secret);
@@ -83,20 +85,8 @@ builder.Services.AddAuthentication(options =>
         ClockSkew = TimeSpan.Zero
     };
 
-    // Permite a SignalR recibir el JWT a través de la query string en el Handshake del WebSocket
     options.Events = new JwtBearerEvents
     {
-        OnAuthenticationFailed = context =>
-        {
-            var exception = context.Exception; 
-            return Task.CompletedTask;
-        },
-        OnChallenge = context =>
-        {
-            var error = context.Error;
-            var description = context.ErrorDescription;
-            return Task.CompletedTask;
-        },
         OnMessageReceived = context =>
         {
             var accessToken = context.Request.Query["access_token"];
@@ -107,12 +97,12 @@ builder.Services.AddAuthentication(options =>
             }
             return Task.CompletedTask;
         }
-    }; ;
+    };
 });
 
 builder.Services.AddAuthorization();
 
-// Inyección de Repositorios (SRP) y Unit of Work
+// Inyección de Repositorios y Unit of Work
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IAuctionRepository, AuctionRepository>();
 builder.Services.AddScoped<IBidRepository, BidRepository>();
@@ -121,7 +111,7 @@ builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
-// Inyección de Servicios de Dominio y Aplicación (SRP)
+// Inyección de Servicios de Dominio y Aplicación
 builder.Services.AddScoped<IBidWinnerService, BidWinnerService>();
 builder.Services.AddScoped<IBidValidationService, BidValidationService>();
 builder.Services.AddScoped<IBidPaymentService, BidPaymentService>();
@@ -148,11 +138,14 @@ builder.Services.AddScoped<DepositFundsHandler>();
 builder.Services.AddHostedService<AuctionClosingWorker>();
 builder.Services.AddHostedService<AuctionActivationWorker>();
 
-// Inyección de servicios de notificación en tiempo real (SignalR)
 builder.Services.AddScoped<IAuctionNotificationService, AuctionNotificationService>();
 
-// Controladores, SignalR, Swagger con soporte para Bearer Token y CORS
+// Controladores con formateo estricto de DateTime en UTC (ISO 8601 con 'Z')
 builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new UtcDateTimeJsonConverter());
+    })
     .ConfigureApiBehaviorOptions(options =>
     {
         options.InvalidModelStateResponseFactory = context =>
@@ -173,32 +166,31 @@ builder.Services.AddControllers()
         };
     });
 
-builder.Services.AddSignalR();
+// SignalR con formateo estricto de DateTime en UTC
+builder.Services.AddSignalR()
+    .AddJsonProtocol(options =>
+    {
+        options.PayloadSerializerOptions.Converters.Add(new UtcDateTimeJsonConverter());
+    });
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "SubastaYa API", Version = "v1" });
-
-    // Habilita el botón Authorize para probar con tokens JWT
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "Encabezado de autorización JWT usando el esquema Bearer. Ejemplo: 'Bearer {token}'",
+        Description = "Encabezado JWT usando el esquema Bearer. Ejemplo: 'Bearer {token}'",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey,
         Scheme = "Bearer"
     });
-
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
             new OpenApiSecurityScheme
             {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
             },
             Array.Empty<string>()
         }
@@ -218,7 +210,6 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Inicialización de base de datos y sembrado dinámico al iniciar
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -233,11 +224,10 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Ocurrió un error al aplicar migraciones o sembrar la base de datos.");
+        logger.LogError(ex, "Error al aplicar migraciones o sembrar la base de datos.");
     }
 }
 
-// Pipeline HTTP
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -245,11 +235,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
-
-
 app.UseCors("AllowAll");
-
-// Autenticación siempre antes de Autorización
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -257,3 +243,17 @@ app.MapControllers();
 app.MapHub<AuctionHub>("/auctionHub");
 
 await app.RunAsync();
+
+
+public class UtcDateTimeJsonConverter : JsonConverter<DateTime>
+{
+    public override DateTime Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        return DateTime.Parse(reader.GetString()!).ToUniversalTime();
+    }
+
+    public override void Write(Utf8JsonWriter writer, DateTime value, JsonSerializerOptions options)
+    {
+        writer.WriteStringValue(DateTime.SpecifyKind(value, DateTimeKind.Utc).ToString("yyyy-MM-ddTHH:mm:ss.fffZ"));
+    }
+}

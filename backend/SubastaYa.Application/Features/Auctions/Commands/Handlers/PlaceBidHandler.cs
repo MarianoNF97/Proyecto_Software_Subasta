@@ -1,4 +1,5 @@
-﻿using SubastaYa.Application.Common.Interfaces;
+﻿using Microsoft.EntityFrameworkCore;
+using SubastaYa.Application.Common.Interfaces;
 using SubastaYa.Application.DTOs;
 using SubastaYa.Application.Exceptions;
 using SubastaYa.Application.Features.Auctions.Commands;
@@ -67,13 +68,25 @@ public class PlaceBidHandler : ICommandHandler<PlaceBidCommand, BidResponseDto>
             };
             _bidRepository.Add(newBid);
 
-            // 5. Aplicar regla anti-sniping si corresponde (usando la subasta ya cargada)
+            // 5. Aplicar regla anti-sniping si corresponde
             extended = _antiSnipingService.ApplyAntiSnipingRule(subasta, command.BuyerId, ahoraUtc);
+
+            // 6. Concurrencia Optimista:
+            
+            if (!extended)
+            {
+                subasta.fecha_fin = subasta.fecha_fin.AddMilliseconds(1);
+            }
             newEndDate = subasta.fecha_fin;
 
-            // 6. Confirmar persistencia atómica
+            // 7. Confirmar persistencia atómica
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw new BusinessValidationException("Conflicto de concurrencia: Otra oferta fue procesada al mismo tiempo sobre esta subasta. Por favor, actualiza e inténtalo nuevamente.");
         }
         catch (Exception)
         {
@@ -81,7 +94,7 @@ public class PlaceBidHandler : ICommandHandler<PlaceBidCommand, BidResponseDto>
             throw;
         }
 
-        // 7. Notificar en tiempo real una vez completada la transacción
+        // 8. Notificar en tiempo real una vez completada la transacción
         await _notificationService.NotifyNewBidAsync(command.AuctionId, command.Amount, command.BuyerId, cancellationToken);
 
         if (extended)
@@ -97,7 +110,7 @@ public class PlaceBidHandler : ICommandHandler<PlaceBidCommand, BidResponseDto>
                 : "Puja registrada correctamente.",
             NewAmount = command.Amount,
             TimeExtended = extended,
-            NewEndDate = newEndDate
+            NewEndDate = DateTime.SpecifyKind(newEndDate, DateTimeKind.Utc)
         };
     }
 }

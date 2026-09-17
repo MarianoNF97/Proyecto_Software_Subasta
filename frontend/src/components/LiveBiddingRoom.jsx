@@ -99,12 +99,13 @@ const LiveBiddingRoom = ({ wallet }) => {
 
     startConnection();
 
+    // 1. Escuchar nuevas ofertas
     connection.on('ReceiveNewBid', (newBid) => {
       console.log('📬 Nueva puja recibida:', newBid);
       
-      const newAmount = newBid.amount ?? newBid.monto;
-      const newUserId = newBid.userId ?? newBid.buyerId ?? newBid.compradorId;
-      const newUserName = newBid.userName ?? newBid.buyerName ?? newBid.compradorNombre;
+      const newAmount = newBid.amount ?? newBid.monto ?? newBid.Amount;
+      const newUserId = newBid.userId ?? newBid.buyerId ?? newBid.compradorId ?? newBid.BuyerId;
+      const newUserName = newBid.userName ?? newBid.buyerName ?? newBid.compradorNombre ?? newBid.BuyerName;
 
       setCurrentPrice(newAmount);
 
@@ -123,12 +124,26 @@ const LiveBiddingRoom = ({ wallet }) => {
         amount: newAmount,
         time: newBid.timestamp || newBid.fechaPuja || new Date().toISOString()
       }, ...prev]);
-      
-      // Alerta de regla Anti-sniping si hubo extensión de tiempo
-      if (newBid.newEndDate || newBid.timeExtended) {
-        setEndDate(newBid.newEndDate);
-        toast.info("⏱️ ¡Regla anti-sniping! Se extendió el tiempo de la subasta.");
+    });
+
+    // 2. Escuchar regla Anti-sniping (Extensión de tiempo en vivo)
+    connection.on('AuctionTimeExtended', (data) => {
+      console.log('⏱️ Extensión de tiempo recibida:', data);
+      const updatedEndDate = data.newEndDate ?? data.NewEndDate;
+      if (updatedEndDate) {
+        setEndDate(updatedEndDate);
+        toast.info("⏱️ ¡Regla anti-sniping activada! Se extendió el tiempo de la subasta por 2 minutos.");
       }
+    });
+
+    // 3. Escuchar cierre automático de subasta en vivo
+    connection.on('AuctionClosed', (data) => {
+      console.log('🏁 Subasta cerrada en tiempo real:', data);
+      setAuction(prev => ({
+        ...prev,
+        status: data.status ?? data.Status ?? 'FINALIZADA'
+      }));
+      toast.warning("La subasta ha finalizado.");
     });
 
     return () => {

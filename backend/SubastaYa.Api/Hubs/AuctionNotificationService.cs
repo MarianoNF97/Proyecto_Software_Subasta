@@ -28,12 +28,13 @@ public class AuctionNotificationService : IAuctionNotificationService
         await _hubContext.Clients.Group(auctionId.ToString()).SendAsync("AuctionTimeExtended", new
         {
             AuctionId = auctionId,
-            NewEndDate = newEndDate
+            NewEndDate = DateTime.SpecifyKind(newEndDate, DateTimeKind.Utc)
         }, cancellationToken);
     }
 
     public async Task NotifyAuctionClosedAsync(int auctionId, string status, decimal finalPrice, int? winnerId, CancellationToken cancellationToken = default)
     {
+        // 1. Notifica a los participantes de la sala el fin de la subasta
         await _hubContext.Clients.Group(auctionId.ToString()).SendAsync("AuctionClosed", new
         {
             AuctionId = auctionId,
@@ -41,5 +42,8 @@ public class AuctionNotificationService : IAuctionNotificationService
             FinalPrice = finalPrice,
             WinnerId = winnerId
         }, cancellationToken);
+
+        // 2. Notifica a toda la aplicación para actualizar saldos del vendedor y ganador
+        await _hubContext.Clients.All.SendAsync("WalletUpdated", cancellationToken);
     }
 }

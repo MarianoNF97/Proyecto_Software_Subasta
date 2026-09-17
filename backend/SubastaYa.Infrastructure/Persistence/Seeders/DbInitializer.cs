@@ -76,7 +76,7 @@ public static class DbInitializer
                 await context.SaveChangesAsync();
                 await context.Database.ExecuteSqlRawAsync("SET IDENTITY_INSERT CATEGORIA OFF");
 
-                // 3. Billeteras (saldo_disponible es columna calculada en BD)
+                // 3. Billeteras
                 var billeteras = new List<Billetera>
                 {
                     new() { id = 1, usuario_id = 1, saldo_total = 0m, saldo_retenido = 0m },
@@ -89,10 +89,10 @@ public static class DbInitializer
                 await context.SaveChangesAsync();
                 await context.Database.ExecuteSqlRawAsync("SET IDENTITY_INSERT BILLETERA OFF");
 
-                // 4. Subastas
+                // 4. Subastas con imágenes reales directas
                 var subastas = new List<Subasta>
                 {
-                    // ID 1: Activa con ofertas previas (tiempo holgado)
+                    // ID 1: iPhone 13 Pro
                     new()
                     {
                         id = 1,
@@ -100,14 +100,14 @@ public static class DbInitializer
                         categoria_id = 1,
                         titulo = "iPhone 13 Pro",
                         descripcion = "iPhone 13 Pro 128GB Grafito. Batería 88%. Impecable estado.",
-                        url_imagen = "/img/iphone.jpg",
+                        url_imagen = "https://images.unsplash.com/photo-1632661674596-df8be070a5c5?auto=format&fit=crop&w=800&q=80",
                         precio_base = 30000m,
                         incremento_minimo = 5000m,
                         fecha_inicio = ahoraUtc.AddHours(-2),
                         fecha_fin = ahoraUtc.AddDays(1),
                         estado = AuctionConstants.ESTADO_ACTIVA
                     },
-                    // ID 2: Activa por vencer en 2 minutos (ideal para testear Anti-sniping y Worker)
+                    // ID 2: Figura Coleccionable
                     new()
                     {
                         id = 2,
@@ -115,14 +115,14 @@ public static class DbInitializer
                         categoria_id = 2,
                         titulo = "Figura Coleccionable",
                         descripcion = "Figura de colección edición limitada con caja original.",
-                        url_imagen = "/img/figura.jpg",
+                        url_imagen = "https://s.pacn.ws/1/p/1g8/mushoku-tensei-jobless-reincarnation-17--scale-prepainted-figure-940091.11.jpg?v=thxw9m&width=3500",
                         precio_base = 10000m,
                         incremento_minimo = 1000m,
                         fecha_inicio = ahoraUtc.AddHours(-1),
                         fecha_fin = ahoraUtc.AddMinutes(2),
                         estado = AuctionConstants.ESTADO_ACTIVA
                     },
-                    // ID 3: Campera Activa limpia para ofertar
+                    // ID 3: Campera Vintage
                     new()
                     {
                         id = 3,
@@ -130,14 +130,14 @@ public static class DbInitializer
                         categoria_id = 3,
                         titulo = "Campera de Cuero Vintage",
                         descripcion = "Campera de cuero vintage auténtica, talle L. Excelente estado.",
-                        url_imagen = "/img/campera.jpg",
+                        url_imagen = "https://images.unsplash.com/photo-1521223890158-f9f7c3d5d504?auto=format&fit=crop&w=800&q=80",
                         precio_base = 20000m,
                         incremento_minimo = 2000m,
                         fecha_inicio = ahoraUtc.AddHours(-1),
                         fecha_fin = ahoraUtc.AddDays(2),
                         estado = AuctionConstants.ESTADO_ACTIVA
                     },
-                    // ID 4: Programada para pruebas de frontend (debe bloquear el botón ofertar)
+                    // ID 4: Moto Scooter 125cc
                     new()
                     {
                         id = 4,
@@ -145,14 +145,14 @@ public static class DbInitializer
                         categoria_id = 4,
                         titulo = "Moto Scooter 125cc",
                         descripcion = "Scooter automática 125cc, único dueño. Lista para transferir.",
-                        url_imagen = "/img/moto.jpg",
+                        url_imagen = "https://corrientesmotos.com.ar/wp-content/uploads/2020/11/1.png",
                         precio_base = 100000m,
                         incremento_minimo = 1000m,
                         fecha_inicio = ahoraUtc.AddHours(24),
                         fecha_fin = ahoraUtc.AddDays(3),
                         estado = AuctionConstants.ESTADO_PROGRAMADA
                     },
-                    // ID 5: Finalizada/Desierta sin ofertas
+                    // ID 5: Monitor Gamer 144Hz
                     new()
                     {
                         id = 5,
@@ -160,7 +160,7 @@ public static class DbInitializer
                         categoria_id = 1,
                         titulo = "Monitor Gamer 144Hz",
                         descripcion = "Monitor IPS 24 pulgadas, 144Hz 1ms Freesync.",
-                        url_imagen = "/img/monitor.jpg",
+                        url_imagen = "https://fullh4rd.com.ar/img/productos/18/monitor-gamer-24-benq-led-zowie-xl2411k-r-dark-grey-144hz-0.jpg",
                         precio_base = 50000m,
                         incremento_minimo = 5000m,
                         fecha_inicio = ahoraUtc.AddDays(-2),

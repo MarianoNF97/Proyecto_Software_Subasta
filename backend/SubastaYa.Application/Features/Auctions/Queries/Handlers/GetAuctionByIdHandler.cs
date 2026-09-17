@@ -38,8 +38,8 @@ public class GetAuctionByIdHandler : IQueryHandler<GetAuctionByIdQuery, AuctionR
             CurrentPrice = currentPrice,
             NextMinimumBid = nextMinimumBid,
             TotalBids = auction.Pujas.Count,
-            StartDate = auction.fecha_inicio,
-            EndDate = auction.fecha_fin,
+            StartDate = DateTime.SpecifyKind(auction.fecha_inicio, DateTimeKind.Utc),
+            EndDate = DateTime.SpecifyKind(auction.fecha_fin, DateTimeKind.Utc),
             Status = auction.estado,
             WinningBidderId = highestBid?.comprador_id,
             Bids = auction.Pujas
@@ -50,7 +50,7 @@ public class GetAuctionByIdHandler : IQueryHandler<GetAuctionByIdQuery, AuctionR
                     BuyerId = p.comprador_id,
                     BuyerName = p.Comprador?.nombre ?? $"Usuario #{p.comprador_id}",
                     Amount = p.monto,
-                    Time = p.fecha_puja
+                    Time = DateTime.SpecifyKind(p.fecha_puja, DateTimeKind.Utc)
                 })
                 .ToList()
         };

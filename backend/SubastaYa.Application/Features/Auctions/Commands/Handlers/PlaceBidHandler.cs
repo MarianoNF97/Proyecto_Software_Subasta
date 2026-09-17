@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using SubastaYa.Application.Common.Interfaces;
 using SubastaYa.Application.DTOs;
 using SubastaYa.Application.Exceptions;
@@ -86,7 +86,7 @@ public class PlaceBidHandler : ICommandHandler<PlaceBidCommand, BidResponseDto>
         catch (DbUpdateConcurrencyException)
         {
             await transaction.RollbackAsync(cancellationToken);
-            throw new BusinessValidationException("Conflicto de concurrencia: Otra oferta fue procesada al mismo tiempo sobre esta subasta. Por favor, actualiza e inténtalo nuevamente.");
+            throw;
         }
         catch (Exception)
         {

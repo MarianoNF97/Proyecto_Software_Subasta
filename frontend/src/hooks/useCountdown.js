@@ -1,39 +1,45 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
-const useCountdown = (targetDate, serverTime) => {
+const useCountdown = (targetDate, serverTimeStr) => {
   const [timeLeft, setTimeLeft] = useState(0);
+
+  // El offset debe calcularse una sola vez basado en el serverTimeStr provisto.
+  // serverTimeMs representa el tiempo del servidor en el instante (Date.now()) que se recibió serverTimeStr.
+  const offsetMs = useMemo(() => {
+    if (!serverTimeStr) return 0;
+    return new Date(serverTimeStr).getTime() - Date.now();
+  }, [serverTimeStr]);
 
   useEffect(() => {
     if (!targetDate) return;
 
-    // Si no proveen serverTime, intentamos usar local como fallback (no ideal en producción)
-    const currentServerTime = serverTime ? new Date(serverTime).getTime() : Date.now();
-    const endTime = new Date(targetDate).getTime();
-    
-    // Calculamos la diferencia inicial confiable
-    let differenceInSeconds = Math.floor((endTime - currentServerTime) / 1000);
-    
-    if (differenceInSeconds <= 0) {
+    const endTimeMs = new Date(targetDate).getTime();
+
+    const calculateTimeLeft = () => {
+      const currentSimulatedServerTime = Date.now() + offsetMs;
+      const differenceInSeconds = Math.floor((endTimeMs - currentSimulatedServerTime) / 1000);
+      return differenceInSeconds > 0 ? differenceInSeconds : 0;
+    };
+
+    const initialTimeLeft = calculateTimeLeft();
+    if (initialTimeLeft <= 0) {
       setTimeLeft(0);
       return;
     }
 
-    setTimeLeft(differenceInSeconds);
+    setTimeLeft(initialTimeLeft);
 
-    // Descontamos de a 1 segundo del delta verificado, ignorando la hora local del SO
     const timer = setInterval(() => {
-      differenceInSeconds -= 1;
+      const remaining = calculateTimeLeft();
+      setTimeLeft(remaining);
       
-      if (differenceInSeconds <= 0) {
+      if (remaining <= 0) {
         clearInterval(timer);
-        setTimeLeft(0);
-      } else {
-        setTimeLeft(differenceInSeconds);
       }
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [targetDate, serverTime]); // Si SignalR empuja un nuevo targetDate, el useEffect se reinicia automáticamente
+  }, [targetDate, offsetMs]);
 
   return timeLeft;
 };

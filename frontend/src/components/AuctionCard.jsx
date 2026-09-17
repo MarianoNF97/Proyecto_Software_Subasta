@@ -1,27 +1,24 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import useCountdown from '../hooks/useCountdown';
 
 const AuctionCard = ({ subasta }) => {
-  const { id, imageUrl, title, categoryName, currentPrice, totalBids, endDate } = subasta;
+  const { id, imageUrl, title, categoryName, currentPrice, totalBids, endDate, status } = subasta;
   
-  // Uso del Custom Hook para mantener el componente limpio
+  // Uso del Custom Hook para mantener el componente limpio y reactivo con la fecha de fin (UTC)
   const timeLeft = useCountdown(endDate);
 
   const formatTime = (seconds) => {
-    if (seconds <= 0) return 'Subasta finalizada';
+    if (seconds <= 0) return 'Finalizada';
     const d = Math.floor(seconds / (3600 * 24));
     const h = Math.floor((seconds % (3600 * 24)) / 3600);
     const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
     
-    if (d > 0) return `${d}d ${h}h ${m}m`;
-    if (h > 0) return `${h}h ${m}m ${s}s`;
-    return `${m}m ${s}s`;
+    return `${d}d ${h}h ${m}m`;
   };
 
-  const isEndingSoon = timeLeft > 0 && timeLeft < 60;
-  const isEnded = timeLeft === 0;
+  const isEnded = timeLeft <= 0;
 
   const formatCurrency = (value = 0) => {
     return new Intl.NumberFormat('es-AR', {
@@ -32,20 +29,48 @@ const AuctionCard = ({ subasta }) => {
     }).format(value);
   };
 
+  const handleLinkClick = (e) => {
+    if (status === 'PROGRAMADA') {
+      e.preventDefault();
+      toast.info('Esta subasta aún no ha comenzado. Vuelve más tarde.');
+    }
+  };
+
+  const getStatusBadge = () => {
+    switch (status) {
+      case 'ACTIVA':
+        return <span className="absolute top-3 right-3 bg-green-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm uppercase tracking-wider">Activa</span>;
+      case 'PROGRAMADA':
+        return <span className="absolute top-3 right-3 bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm uppercase tracking-wider">Programada</span>;
+      case 'FINALIZADA':
+      case 'DESIERTA':
+        return <span className="absolute top-3 right-3 bg-gray-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm uppercase tracking-wider">{status}</span>;
+      default:
+        return null;
+    }
+  };
+
+  const isDisabled = status === 'PROGRAMADA' || status === 'FINALIZADA' || status === 'DESIERTA';
+
   return (
-    <Link to={`/subasta/${id}`} className="block w-full max-w-sm transition-transform hover:-translate-y-1 duration-300">
-      <div className="flex flex-col bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg transition-shadow duration-300 h-full cursor-pointer">
+    <Link 
+      to={`/subasta/${id}`} 
+      onClick={handleLinkClick}
+      className={`block w-full max-w-sm transition-transform duration-300 ${status === 'PROGRAMADA' ? 'cursor-not-allowed' : 'hover:-translate-y-1'}`}
+    >
+      <div className={`flex flex-col bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-shadow duration-300 h-full ${status === 'PROGRAMADA' ? '' : 'hover:shadow-lg cursor-pointer'}`}>
         
         {/* Mitad superior: Imagen y Categoría (Badge flotante) */}
       <div className="relative h-56 w-full bg-gray-100">
         <img 
           src={imageUrl || 'https://via.placeholder.com/400x300?text=Subasta+Sin+Imagen'} 
           alt={title} 
-          className="w-full h-full object-cover"
+          className={`w-full h-full object-cover ${isDisabled ? 'opacity-75' : ''}`}
         />
         <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg text-xs font-bold text-gray-800 shadow-sm uppercase tracking-wider">
           {categoryName}
         </span>
+        {getStatusBadge()}
       </div>
 
       {/* Mitad inferior: Título y Ofertas */}
@@ -68,20 +93,20 @@ const AuctionCard = ({ subasta }) => {
             </span>
           </div>
         </div>
-      </div>
-
-      {/* Pie de la tarjeta: Contador Regresivo */}
-      <div className={`border-t p-4 flex items-center justify-center transition-colors
-        ${isEnded ? 'bg-gray-50 border-gray-100' : isEndingSoon ? 'bg-red-50 border-red-100' : 'bg-blue-50/50 border-blue-50'}
-      `}>
-        <div className={`flex items-center gap-2 font-mono font-semibold text-sm
-          ${isEnded ? 'text-gray-500' : isEndingSoon ? 'text-red-600 animate-pulse' : 'text-blue-700'}
-        `}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <polyline points="12 6 12 12 16 14"></polyline>
-          </svg>
-          <span>{formatTime(timeLeft)}</span>
+        
+        {/* Pie de la tarjeta: Contador Regresivo */}
+        <div className="bg-gray-50 p-2 rounded-lg text-center mt-3 border border-gray-100">
+          <div className={`flex items-center justify-center gap-2 font-mono font-semibold text-sm
+            ${isEnded ? 'text-red-500' : 'text-blue-700'}
+          `}>
+            {!isEnded && (
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            )}
+            <span>{formatTime(timeLeft)}</span>
+          </div>
         </div>
       </div>
       

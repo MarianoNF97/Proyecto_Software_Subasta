@@ -37,6 +37,13 @@ const LiveBiddingRoom = ({ wallet }) => {
         const response = await apiClient.get(`/auctions/${id}`);
         if (!isMounted) return;
 
+        const serverDateHeader = response.headers['date'];
+        if (serverDateHeader) {
+          serverTimeRef.current = new Date(serverDateHeader).toISOString();
+        } else {
+          serverTimeRef.current = new Date().toISOString();
+        }
+
         const data = response.data;
         setAuction(data);
         setCurrentPrice(data.currentPrice ?? data.precioActual ?? 0);
@@ -144,6 +151,45 @@ const LiveBiddingRoom = ({ wallet }) => {
         status: data.status ?? data.Status ?? 'FINALIZADA'
       }));
       toast.warning("La subasta ha finalizado.");
+    });
+
+    // 4. Sincronización post-suspensión (Laptop asleep / Network drop)
+    connection.onreconnected(async (connectionId) => {
+      console.log(`🔄 Reconectado a SignalR (ID: ${connectionId}). Sincronizando estado oficial...`);
+      try {
+        const response = await apiClient.get(`/auctions/${id}`);
+        const data = response.data;
+        
+        // Sincronizar el Offset del servidor y el nuevo EndDate
+        const serverDateHeader = response.headers['date'];
+        if (serverDateHeader) {
+          serverTimeRef.current = new Date(serverDateHeader).toISOString();
+        } else {
+          serverTimeRef.current = new Date().toISOString();
+        }
+        setEndDate(data.endDate ?? data.fechaFin);
+
+        // Sincronizar pujas, precio y estado
+        setCurrentPrice(data.currentPrice ?? data.precioActual ?? 0);
+        setAuction(prev => ({ ...prev, status: data.status ?? data.estado ?? prev.status }));
+
+        const rawBids = data.bids || data.pujas || [];
+        const formattedBids = rawBids.map(b => ({
+          userId: b.buyerId || b.compradorId || b.comprador_id || b.userId,
+          userName: b.buyerName || b.compradorNombre || b.userName,
+          amount: b.amount ?? b.monto,
+          time: b.time || b.fechaPuja || b.fecha_puja || b.createdAt || new Date().toISOString()
+        })).sort((a, b) => new Date(b.time) - new Date(a.time));
+        
+        setBidsHistory(formattedBids);
+
+        const topBidder = data.highestBidderId || data.compradorGanadorId || formattedBids[0]?.userId;
+        if (topBidder) setLatestBidderId(topBidder);
+
+        toast.success("Conexión recuperada. Tiempo y estado sincronizados.");
+      } catch (err) {
+        console.error("Error al resincronizar estado post-reconexión:", err);
+      }
     });
 
     return () => {

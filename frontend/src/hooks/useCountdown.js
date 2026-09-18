@@ -1,10 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+﻿import { useState, useEffect, useMemo } from 'react';
 
 const useCountdown = (targetDate, serverTimeStr) => {
   const [timeLeft, setTimeLeft] = useState(0);
 
-  // El offset debe calcularse una sola vez basado en el serverTimeStr provisto.
-  // serverTimeMs representa el tiempo del servidor en el instante (Date.now()) que se recibió serverTimeStr.
   const offsetMs = useMemo(() => {
     if (!serverTimeStr) return 0;
     return new Date(serverTimeStr).getTime() - Date.now();

@@ -6,6 +6,5 @@ public class Categoria
     public string nombre { get; set; } = string.Empty;
     public string? url_icono { get; set; }
 
-    // Relaciones
     public ICollection<Subasta> Subastas { get; set; } = new List<Subasta>();
 }

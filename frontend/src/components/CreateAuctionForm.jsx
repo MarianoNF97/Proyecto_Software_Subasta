@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import apiClient from '../apiClient';
@@ -39,7 +39,6 @@ const CreateAuctionForm = ({ onAuctionCreated }) => {
     }));
   };
 
-  // Validaciones de UX
   const isBasePriceInvalid = formData.precio_base < 0;
   const isIncrementInvalid = formData.incremento_minimo < 0;
   const hasNegativeEconomics = isBasePriceInvalid || isIncrementInvalid;
@@ -49,19 +48,14 @@ const CreateAuctionForm = ({ onAuctionCreated }) => {
                         
   const isFormIncomplete = !formData.titulo || !formData.fecha_inicio || !formData.fecha_fin || !formData.categoriaId;
 
-  // Bloqueo preventivo
   const isSubmitDisabled = hasNegativeEconomics || isDateInvalid || isFormIncomplete || isLoading;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitDisabled) return;
 
-    setIsLoading(true); // Mostrar spinner y deshabilitar
-
+    setIsLoading(true);
     try {
-      // Fuente API: backend/SubastaYa.Api/Controllers/AuctionsController.cs
-      // Contrato C#: backend/SubastaYa.Application/Features/Auctions/Commands/CreateAuctionCommand.cs
-      // Método: POST /auctions
       const payload = {
         categoryId: parseInt(formData.categoriaId),
         title: formData.titulo,
@@ -71,11 +65,8 @@ const CreateAuctionForm = ({ onAuctionCreated }) => {
         minIncrement: parseFloat(formData.incremento_minimo),
         startDate: new Date(formData.fecha_inicio).toISOString(),
         endDate: new Date(formData.fecha_fin).toISOString()
-        // NOTA: sellerId se omite intencionalmente por reglas de IDOR. 
-        // El backend debe extraer el CurrentUserId del token JWT.
       };
 
-      // POST a la API
       await apiClient.post('/auctions', payload);
       toast.success('Subasta publicada con éxito');
       
@@ -87,8 +78,7 @@ const CreateAuctionForm = ({ onAuctionCreated }) => {
     } catch (error) {
       console.error('Error al crear subasta:', error);
     } finally {
-      setIsLoading(false); // Ocultar spinner
-    }
+      setIsLoading(false);    }
   };
 
   return (
@@ -97,7 +87,7 @@ const CreateAuctionForm = ({ onAuctionCreated }) => {
       
       <form onSubmit={handleSubmit} className="flex flex-col gap-8">
         
-        {/* Panel 1: Producto */}
+        {}
         <section className="flex flex-col gap-4">
           <h3 className="text-lg font-semibold text-gray-700 border-b pb-2">1. Producto</h3>
           
@@ -141,7 +131,7 @@ const CreateAuctionForm = ({ onAuctionCreated }) => {
           </div>
         </section>
 
-        {/* Panel 2: Economía */}
+        {}
         <section className="flex flex-col gap-4">
           <h3 className="text-lg font-semibold text-gray-700 border-b pb-2">2. Economía</h3>
           
@@ -166,7 +156,7 @@ const CreateAuctionForm = ({ onAuctionCreated }) => {
           </div>
         </section>
 
-        {/* Panel 3: Tiempos */}
+        {}
         <section className="flex flex-col gap-4">
           <h3 className="text-lg font-semibold text-gray-700 border-b pb-2">3. Tiempos</h3>
           
@@ -190,7 +180,7 @@ const CreateAuctionForm = ({ onAuctionCreated }) => {
           </div>
         </section>
 
-        {/* Botón Guardar */}
+        {}
         <button 
           type="submit" 
           disabled={isSubmitDisabled}

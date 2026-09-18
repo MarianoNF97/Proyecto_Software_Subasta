@@ -1,8 +1,5 @@
-namespace SubastaYa.Domain.Constants;
+﻿namespace SubastaYa.Domain.Constants;
 
-/// <summary>
-/// Constantes relacionadas con tipos de transacciones ledger.
-/// </summary>
 public static class TransactionConstants
 {
     public const string TIPO_DEPOSITO = "DEPOSITO";

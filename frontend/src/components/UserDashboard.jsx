@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../apiClient';
@@ -6,15 +6,11 @@ import { toast } from 'sonner';
 
 const UserDashboard = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('compras'); // 'compras' | 'publicaciones'
-  
+  const [activeTab, setActiveTab] = useState('compras');  
   const [purchases, setPurchases] = useState([]);
   const [publications, setPublications] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Fuente API: backend/SubastaYa.Api/Controllers/UsersController.cs
-  // Endpoint: GET /users/my-purchases (Compras/Pujas del usuario)
-  // Endpoint: GET /users/my-auctions (Publicaciones del usuario)
   
   useEffect(() => {
     const fetchData = async () => {
@@ -28,7 +24,6 @@ const UserDashboard = () => {
           setPublications(response.data);
         }
       } catch (error) {
-        // apiClient interceptor already calls toast.error for HTTP errors
         console.error('Error fetching dashboard data:', error);
       } finally {
         setIsLoading(false);
@@ -42,7 +37,7 @@ const UserDashboard = () => {
     <div className="max-w-6xl mx-auto flex flex-col gap-6">
       <h2 className="text-3xl font-bold text-gray-800">Mis Actividades</h2>
       
-      {/* Sistema de Pestañas */}
+      {}
       <div className="flex border-b border-gray-200">
         <button
           className={`py-2 px-4 text-sm font-medium border-b-2 transition-colors ${
@@ -66,7 +61,7 @@ const UserDashboard = () => {
         </button>
       </div>
 
-      {/* Contenido */}
+      {}
       <div className="mt-4">
         {isLoading ? (
           <div className="text-center py-20">
@@ -74,7 +69,7 @@ const UserDashboard = () => {
             <p className="text-gray-500 mt-4">Cargando...</p>
           </div>
         ) : activeTab === 'compras' ? (
-          /* Pestaña: Mis Compras / Pujas */
+          
           purchases.length === 0 ? (
             <div className="text-center py-20 bg-white rounded-lg shadow-sm border border-gray-100">
               <p className="text-gray-500 text-lg mb-4">No has participado en ninguna subasta aún.</p>
@@ -143,7 +138,7 @@ const UserDashboard = () => {
             </div>
           )
         ) : (
-          /* Pestaña: Mis Publicaciones */
+          
           publications.length === 0 ? (
             <div className="text-center py-20 bg-white rounded-lg shadow-sm border border-gray-100">
               <p className="text-gray-500 text-lg mb-4">No tienes publicaciones activas.</p>

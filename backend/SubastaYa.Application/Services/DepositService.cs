@@ -1,14 +1,10 @@
-using SubastaYa.Application.Exceptions;
+ï»¿using SubastaYa.Application.Exceptions;
 using SubastaYa.Application.Interfaces.Repositories;
 using SubastaYa.Domain.Constants;
 using SubastaYa.Domain.Entities;
 
 namespace SubastaYa.Application.Services;
 
-/// <summary>
-/// Implementación del servicio de depósitos.
-/// Responsabilidad única: procesar depósitos de fondos en billeteras.
-/// </summary>
 public class DepositService : IDepositService
 {
     private readonly IWalletRepository _walletRepository;
@@ -28,7 +24,7 @@ public class DepositService : IDepositService
             throw new BusinessValidationException("El monto a depositar debe ser mayor a cero.");
 
         var wallet = await _walletRepository.GetByUserIdAsync(userId, cancellationToken)
-            ?? throw new NotFoundException($"No se encontró la billetera para el usuario con ID {userId}.");
+            ?? throw new NotFoundException($"No se encontrï¿½ la billetera para el usuario con ID {userId}.");
 
         wallet.saldo_total += amount;
 

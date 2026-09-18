@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+ï»¿using Microsoft.Extensions.Logging;
 using SubastaYa.Application.Interfaces.Repositories;
 using SubastaYa.Application.Interfaces.Services;
 using SubastaYa.Domain.Constants;
@@ -105,7 +105,6 @@ public class AuctionClosureService : IAuctionClosureService
             return false;
         }
 
-        // Notificación en tiempo real fuera de la transacción y protegida contra fallos de red
         try
         {
             await _notificationService.NotifyAuctionClosedAsync(
@@ -117,7 +116,7 @@ public class AuctionClosureService : IAuctionClosureService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "La subasta {AuctionId} fue cerrada en BD pero falló el envío de la notificación en tiempo real.", subasta.id);
+            _logger.LogWarning(ex, "La subasta {AuctionId} fue cerrada en BD pero fallï¿½ el envï¿½o de la notificaciï¿½n en tiempo real.", subasta.id);
         }
 
         return true;

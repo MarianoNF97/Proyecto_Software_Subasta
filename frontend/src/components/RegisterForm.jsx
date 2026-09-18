@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import apiClient from '../apiClient';
 import { toast } from 'sonner';
@@ -30,15 +30,12 @@ const RegisterForm = () => {
 
       if (response.status === 201 || response.status === 200) {
         toast.success('Usuario registrado correctamente');
-        // Limpiar el formulario
         setNombre('');
         setEmail('');
         setPassword('');
-        // Redirigir al login
         navigate('/login');
       }
     } catch (error) {
-      // El interceptor global de Axios ya maneja y muestra los errores (400, 409, 500)
       console.error('Error durante el registro:', error);
     } finally {
       setIsLoading(false);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
 import { toast } from 'sonner';
@@ -11,11 +11,9 @@ const LiveBiddingRoom = ({ wallet }) => {
   const { user } = useAuth();
   const userId = user?.id;
   
-  // 1. Estado de la subasta
   const [auction, setAuction] = useState(null);
   const [isLoadingAuction, setIsLoadingAuction] = useState(true);
 
-  // 2. Estado interactivo en vivo
   const [currentPrice, setCurrentPrice] = useState(0);
   const [endDate, setEndDate] = useState(null);
   const [bidsHistory, setBidsHistory] = useState([]);
@@ -23,14 +21,10 @@ const LiveBiddingRoom = ({ wallet }) => {
   const [isBidding, setIsBidding] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  // Consola de puja
   const { imageUrl, title, description, categoryName, minIncrement, status } = auction || {};
   const suggestedBid = currentPrice + (minIncrement || 0);
   const [bidAmount, setBidAmount] = useState(0);
 
-  // ==========================================
-  // 1. FETCH DE LA SUBASTA (Inicialización)
-  // ==========================================
   useEffect(() => {
     let isMounted = true;
     const fetchAuction = async () => {
@@ -50,7 +44,6 @@ const LiveBiddingRoom = ({ wallet }) => {
         setCurrentPrice(data.currentPrice ?? data.precioActual ?? 0);
         setEndDate(data.endDate ?? data.fechaFin);
 
-        // Mapear historial inicial de pujas
         const rawBids = data.bids || data.pujas || [];
         const formattedBids = rawBids.map(b => ({
           userId: b.buyerId || b.compradorId || b.comprador_id || b.userId,
@@ -61,7 +54,6 @@ const LiveBiddingRoom = ({ wallet }) => {
 
         setBidsHistory(formattedBids);
 
-        // Determinar quién va liderando actualmente
         const topBidder = data.highestBidderId || data.compradorGanadorId || formattedBids[0]?.userId;
         if (topBidder) {
           setLatestBidderId(topBidder);
@@ -81,9 +73,6 @@ const LiveBiddingRoom = ({ wallet }) => {
     setBidAmount(suggestedBid);
   }, [suggestedBid]);
 
-  // ==========================================
-  // 2. INTEGRACIÓN DE SIGNALR (Tiempo Real)
-  // ==========================================
   useEffect(() => {
     if (!auction) return;
 
@@ -98,7 +87,6 @@ const LiveBiddingRoom = ({ wallet }) => {
     const startConnection = async () => {
       try {
         await connection.start();
-        console.log('✅ Conectado a SignalR - Sala en Vivo');
         await connection.invoke('JoinAuctionGroup', id.toString());
       } catch (err) {
         console.error('❌ Error al conectar a SignalR:', err);
@@ -107,9 +95,7 @@ const LiveBiddingRoom = ({ wallet }) => {
 
     startConnection();
 
-    // 1. Escuchar nuevas ofertas
     connection.on('ReceiveNewBid', (newBid) => {
-      console.log('📬 Nueva puja recibida:', newBid);
       
       const newAmount = newBid.amount ?? newBid.monto ?? newBid.Amount;
       const newUserId = newBid.userId ?? newBid.buyerId ?? newBid.compradorId ?? newBid.BuyerId;
@@ -117,7 +103,6 @@ const LiveBiddingRoom = ({ wallet }) => {
 
       setCurrentPrice(newAmount);
 
-      // Alerta si el usuario actual estaba liderando y fue superado
       setLatestBidderId(prevLeader => {
         if (prevLeader === userId && newUserId !== userId) {
           toast.error(`¡Has sido superado! Nueva oferta: ${formatCurrency(newAmount)}`);
@@ -125,7 +110,6 @@ const LiveBiddingRoom = ({ wallet }) => {
         return newUserId;
       });
 
-      // Agregar nueva oferta al historial reactivo
       setBidsHistory(prev => [{
         userId: newUserId,
         userName: newUserName,
@@ -134,9 +118,7 @@ const LiveBiddingRoom = ({ wallet }) => {
       }, ...prev]);
     });
 
-    // 2. Escuchar regla Anti-sniping (Extensión de tiempo en vivo)
     connection.on('AuctionTimeExtended', (data) => {
-      console.log('⏱️ Extensión de tiempo recibida:', data);
       const updatedEndDate = data.newEndDate ?? data.NewEndDate;
       if (updatedEndDate) {
         setEndDate(updatedEndDate);
@@ -144,9 +126,7 @@ const LiveBiddingRoom = ({ wallet }) => {
       }
     });
 
-    // 3. Escuchar cierre automático de subasta en vivo
     connection.on('AuctionClosed', (data) => {
-      console.log('🏁 Subasta cerrada en tiempo real:', data);
       setAuction(prev => ({
         ...prev,
         status: data.status ?? data.Status ?? 'FINALIZADA'
@@ -154,14 +134,11 @@ const LiveBiddingRoom = ({ wallet }) => {
       toast.warning("La subasta ha finalizado.");
     });
 
-    // 4. Sincronización post-suspensión (Laptop asleep / Network drop)
     connection.onreconnected(async (connectionId) => {
-      console.log(`🔄 Reconectado a SignalR (ID: ${connectionId}). Sincronizando estado oficial...`);
       try {
         const response = await apiClient.get(`/auctions/${id}`);
         const data = response.data;
         
-        // Sincronizar el Offset del servidor y el nuevo EndDate
         const serverDateHeader = response.headers['date'];
         if (serverDateHeader) {
           serverTimeRef.current = new Date(serverDateHeader).toISOString();
@@ -170,7 +147,6 @@ const LiveBiddingRoom = ({ wallet }) => {
         }
         setEndDate(data.endDate ?? data.fechaFin);
 
-        // Sincronizar pujas, precio y estado
         setCurrentPrice(data.currentPrice ?? data.precioActual ?? 0);
         setAuction(prev => ({ ...prev, status: data.status ?? data.estado ?? prev.status }));
 
@@ -201,9 +177,6 @@ const LiveBiddingRoom = ({ wallet }) => {
     };
   }, [auction?.id, id, userId]);
 
-  // ==========================================
-  // 3. REGLAS DE NEGOCIO Y ESTADOS
-  // ==========================================
   const availableBalance = wallet?.availableBalance ?? wallet?.saldoDisponible ?? 0;
   
   const serverTimeRef = useRef(new Date().toISOString());
@@ -218,15 +191,12 @@ const LiveBiddingRoom = ({ wallet }) => {
   const userHasParticipated = bidsHistory.some(b => b.userId === userId);
   const isButtonDisabled = isNotActive || hasInsufficientFunds || bidAmount < suggestedBid || isBidding;
 
-  // Enviar oferta al backend
   const handleBidSubmit = async (e) => {
     e.preventDefault();
-    if (status?.toUpperCase() !== 'ACTIVA') return; // Guardián de seguridad a nivel lógico
-    if (isButtonDisabled) return;
+    if (status?.toUpperCase() !== 'ACTIVA') return;    if (isButtonDisabled) return;
 
     setIsBidding(true);
     try {
-      // Rutas RESTful Nivel 2: compatibilidad con /bids o /auctions/bids
       let response;
       const payload = {
         auctionId: parseInt(id),
@@ -248,7 +218,6 @@ const LiveBiddingRoom = ({ wallet }) => {
         toast.success("Oferta enviada exitosamente");
       }
     } catch (error) {
-      console.error('Error al pujar:', error);
       const serverMessage = error.response?.data?.message || error.response?.data?.detail;
       toast.error(serverMessage || "No se pudo procesar la oferta.");
     } finally {
@@ -256,7 +225,6 @@ const LiveBiddingRoom = ({ wallet }) => {
     }
   };
 
-  // Formato de temporizador: Xd Xh Xm si > 24 horas
   const formatTime = (seconds) => {
     if (seconds <= 0) return '00:00:00';
     const d = Math.floor(seconds / 86400);
@@ -295,7 +263,7 @@ const LiveBiddingRoom = ({ wallet }) => {
   return (
     <div className="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
       
-      {/* COLUMNA IZQUIERDA: Detalle e Historial */}
+      {}
       <div className="lg:col-span-8 flex flex-col gap-6">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="relative h-96 w-full bg-white flex items-center justify-center">
@@ -325,7 +293,7 @@ const LiveBiddingRoom = ({ wallet }) => {
           </div>
         </div>
 
-        {/* Historial de Pujas Reactivo */}
+        {}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
           <h2 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Historial de Movimientos</h2>
           {bidsHistory.length === 0 ? (
@@ -348,10 +316,10 @@ const LiveBiddingRoom = ({ wallet }) => {
         </div>
       </div>
 
-      {/* COLUMNA DERECHA: Panel de Acción */}
+      {}
       <div className="lg:col-span-4 flex flex-col gap-6 sticky top-8">
         
-        {/* Temporizador y Badges de Estado */}
+        {}
         <div className={`p-8 rounded-3xl shadow-sm border text-center transition-colors flex flex-col items-center justify-center
           ${isEnded 
             ? 'bg-gray-100 border-gray-200' 
@@ -371,7 +339,7 @@ const LiveBiddingRoom = ({ wallet }) => {
             {formatTime(timeLeft)}
           </div>
           
-          {/* Indicador de Liderando / Superado */}
+          {}
           {!isEnded && !isScheduled && latestBidderId && (
             latestBidderId === userId ? (
               <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-green-100 text-green-700 font-bold text-sm shadow-sm border border-green-200">
@@ -385,7 +353,7 @@ const LiveBiddingRoom = ({ wallet }) => {
           )}
         </div>
 
-        {/* Consola de Puja */}
+        {}
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col gap-6">
           <div className="flex flex-col gap-1">
             <span className="text-sm font-medium text-gray-500">Oferta Actual</span>

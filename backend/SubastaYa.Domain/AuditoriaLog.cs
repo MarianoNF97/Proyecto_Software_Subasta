@@ -2,14 +2,11 @@
 
 public class AuditoriaLog
 {
-    public int id { get; set; }
-    public string entidad { get; set; } = string.Empty; //DEFAULT EN VACIO, SUBASTA, BILLETERA, SISTEMA
-    public int entidad_id { get; set; }
-    public string accion { get; set; } = string.Empty; //DEFAULT EN VACIO, EXTENSION_TIEMPO, CIERRE_WORKER, etc.
-    public int? usuario_id { get; set; }
-    public string detalle_json { get; set; } = string.Empty;
-    public DateTime fecha { get; set; } = DateTime.UtcNow;
+    public int id { get; init; }
+    public string entidad { get; init; } = string.Empty;    public int entidad_id { get; init; }
+    public string accion { get; init; } = string.Empty;    public int? usuario_id { get; init; }
+    public string detalle_json { get; init; } = string.Empty;
+    public DateTime fecha { get; init; } = DateTime.UtcNow;
 
-    // Relaciones
     public Usuario? Usuario { get; set; }
 }

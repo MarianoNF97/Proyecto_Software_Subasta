@@ -1,20 +1,14 @@
-using SubastaYa.Application.Interfaces.Repositories;
+ï»¿using SubastaYa.Application.Interfaces.Repositories;
 using SubastaYa.Application.Interfaces.Services;
 using SubastaYa.Domain.Constants;
 using SubastaYa.Domain.Entities;
 
 namespace SubastaYa.Application.Services;
 
-/// <summary>
-/// Implementación del servicio anti-sniping.
-/// Responsabilidad única: extender 2 minutos la subasta si se oferta en los últimos 60 segundos.
-/// </summary>
 public class AntiSnipingService : IAntiSnipingService
 {
     private readonly IAuditLogRepository _auditLogRepository;
-    private static readonly TimeSpan CriticalWindow = TimeSpan.FromSeconds(60); // 60 segundos oficiales
-    private static readonly TimeSpan ExtensionTime = TimeSpan.FromMinutes(2);   // 2 minutos de extensión
-
+    private static readonly TimeSpan CriticalWindow = TimeSpan.FromSeconds(60);    private static readonly TimeSpan ExtensionTime = TimeSpan.FromMinutes(2);
     public AntiSnipingService(IAuditLogRepository auditLogRepository)
     {
         _auditLogRepository = auditLogRepository;

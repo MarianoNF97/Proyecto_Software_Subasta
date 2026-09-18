@@ -26,7 +26,6 @@ public class AuctionClosingWorker : BackgroundService
             {
                 using var scope = _serviceProvider.CreateScope();
 
-                // 1. Activar subastas programadas cuya fecha de inicio ya se cumplió
                 var activationService = scope.ServiceProvider.GetService<IAuctionActivationService>();
                 if (activationService != null)
                 {
@@ -37,7 +36,6 @@ public class AuctionClosingWorker : BackgroundService
                     }
                 }
 
-                // 2. Cerrar y liquidar subastas activas vencidas
                 var handler = scope.ServiceProvider.GetRequiredService<CloseExpiredAuctionsHandler>();
                 int closedCount = await handler.HandleAsync(new CloseExpiredAuctionsCommand(), stoppingToken);
 

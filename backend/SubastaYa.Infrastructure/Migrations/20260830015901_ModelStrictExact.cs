@@ -3,14 +3,11 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-#pragma warning disable CA1814 // Prefer jagged arrays over multidimensional
-
+#pragma warning disable CA1814
 namespace SubastaYa.Infrastructure.Migrations
 {
-    /// <inheritdoc />
     public partial class ModelStrictExact : Migration
     {
-        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
@@ -285,7 +282,6 @@ namespace SubastaYa.Infrastructure.Migrations
                 column: "subasta_id");
         }
 
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(

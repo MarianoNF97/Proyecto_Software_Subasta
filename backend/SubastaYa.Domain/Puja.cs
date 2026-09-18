@@ -8,7 +8,6 @@ public class Puja
     public decimal monto { get; set; }
     public DateTime fecha_puja { get; set; } = DateTime.UtcNow;
 
-    // Relaciones
     public Subasta Subasta { get; set; } = null!;
     public Usuario Comprador { get; set; } = null!;
 }

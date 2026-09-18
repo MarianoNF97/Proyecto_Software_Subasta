@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SubastaYa.Application.DTOs;
@@ -43,7 +43,6 @@ public class WalletsController : ControllerBase
         [FromServices] GetWalletBalanceHandler handler,
         CancellationToken cancellationToken)
     {
-        // Prevención IDOR: Solo el propio usuario o un Admin puede consultar el saldo
         var currentUserId = GetCurrentUserId();
         if (userId != currentUserId && !User.IsInRole("Admin"))
             return Forbid();
@@ -61,7 +60,6 @@ public class WalletsController : ControllerBase
         [FromServices] GetWalletTransactionsHandler handler,
         CancellationToken cancellationToken)
     {
-        // Prevención IDOR: Solo el propio usuario o un Admin puede consultar las transacciones
         var currentUserId = GetCurrentUserId();
         if (userId != currentUserId && !User.IsInRole("Admin"))
             return Forbid();
@@ -92,7 +90,6 @@ public class WalletsController : ControllerBase
 
         if (string.IsNullOrEmpty(claim) || !int.TryParse(claim, out var userId))
         {
-            // Log de diagnóstico para identificar qué claims llegaron en caso de fallo
             var claimsPresentes = string.Join(", ", User.Claims.Select(c => $"{c.Type}={c.Value}"));
             throw new UnauthorizedAccessException($"No se encontró identificador válido en el token. Claims recibidos: [{claimsPresentes}]");
         }

@@ -1,13 +1,9 @@
-using SubastaYa.Application.Exceptions;
+ï»¿using SubastaYa.Application.Exceptions;
 using SubastaYa.Application.Interfaces.Repositories;
 using SubastaYa.Domain.Constants;
 
 namespace SubastaYa.Application.Services;
 
-/// <summary>
-/// Implementación del servicio de validación de pujas.
-/// Responsabilidad única: validar reglas de negocio para pujas.
-/// </summary>
 public class BidValidationService : IBidValidationService
 {
     private readonly IAuctionRepository _auctionRepository;
@@ -31,7 +27,7 @@ public class BidValidationService : IBidValidationService
         CancellationToken cancellationToken = default)
     {
         var subasta = await _auctionRepository.GetByIdWithBidsAsync(auctionId, cancellationToken)
-            ?? throw new NotFoundException($"No se encontró la subasta con ID {auctionId}.");
+            ?? throw new NotFoundException($"No se encontrï¿½ la subasta con ID {auctionId}.");
 
         if (subasta.estado != AuctionConstants.ESTADO_ACTIVA || DateTime.UtcNow > subasta.fecha_fin)
             throw new BusinessValidationException("La subasta no se encuentra activa para recibir ofertas.");
@@ -48,11 +44,10 @@ public class BidValidationService : IBidValidationService
             throw new BusinessValidationException($"La oferta debe ser de al menos ${minAllowedBid}.");
 
         if (highestBid != null && highestBid.comprador_id == buyerId)
-            throw new BusinessValidationException("Ya eres el postor líder de esta subasta.");
+            throw new BusinessValidationException("Ya eres el postor lï¿½der de esta subasta.");
 
-        // Validación de fondos disponibles reales (Total - Retenido)
         var buyerWallet = await _walletRepository.GetByUserIdAsync(buyerId, cancellationToken)
-            ?? throw new NotFoundException($"No se encontró la billetera para el comprador {buyerId}.");
+            ?? throw new NotFoundException($"No se encontrï¿½ la billetera para el comprador {buyerId}.");
 
         decimal disponibleReal = buyerWallet.saldo_total - buyerWallet.saldo_retenido;
 

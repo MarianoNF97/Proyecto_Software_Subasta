@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import apiClient from '../apiClient';
 
 export default function TransactionHistory() {
@@ -7,13 +7,9 @@ export default function TransactionHistory() {
 
   const fetchTransactions = async () => {
     try {
-      // Fuente API: backend/SubastaYa.Api/Controllers/WalletsController.cs
-      // Contrato C#: backend/SubastaYa.Application/DTOs/LedgerTransactionDto.cs
-      // Método: GET /wallets/my-transactions
       const res = await apiClient.get('/wallets/my-transactions');
       setTransactions(res.data);
     } catch (err) {
-      // Error manejado por el interceptor de apiClient
       console.error(err);
     } finally {
       setLoading(false);

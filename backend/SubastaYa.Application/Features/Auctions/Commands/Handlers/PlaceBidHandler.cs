@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SubastaYa.Application.Common.Interfaces;
 using SubastaYa.Application.DTOs;
@@ -52,17 +52,13 @@ public class PlaceBidHandler : ICommandHandler<PlaceBidCommand, BidResponseDto>
 
         try
         {
-            // 1. Obtener la subasta en memoria
             var subasta = await _auctionRepository.GetByIdWithBidsAsync(command.AuctionId, cancellationToken)
                 ?? throw new NotFoundException($"No se encontró la subasta con ID {command.AuctionId}.");
 
-            // 2. Validar reglas de negocio y saldo disponible (si falla, salta al catch)
             await _bidValidationService.ValidateBidAsync(command.AuctionId, command.BuyerId, command.Amount, cancellationToken);
 
-            // 3. Procesar retención en escrow y liberación del postor previo
             await _bidPaymentService.ProcessBidPaymentAsync(command.AuctionId, command.BuyerId, command.Amount, cancellationToken);
 
-            // 4. Registrar la puja en base de datos
             var newBid = new Puja
             {
                 subasta_id = command.AuctionId,
@@ -72,17 +68,14 @@ public class PlaceBidHandler : ICommandHandler<PlaceBidCommand, BidResponseDto>
             };
             _bidRepository.Add(newBid);
 
-            // 5. Aplicar regla anti-sniping (el servicio registra internamente la auditoría EXTENSION_TIEMPO)
             extended = _antiSnipingService.ApplyAntiSnipingRule(subasta, command.BuyerId, ahoraUtc);
 
-            // 6. Concurrencia Optimista
             if (!extended)
             {
                 subasta.fecha_fin = subasta.fecha_fin.AddMilliseconds(1);
             }
             newEndDate = subasta.fecha_fin;
 
-            // 7. Confirmar persistencia atómica
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
@@ -90,7 +83,6 @@ public class PlaceBidHandler : ICommandHandler<PlaceBidCommand, BidResponseDto>
         {
             await transaction.RollbackAsync(cancellationToken);
 
-            // AUDITORÍA OBLIGATORIA: Intento de puja rechazado por concurrencia
             await RegistrarAuditoriaFalloAsync(
                 command.AuctionId,
                 command.BuyerId,
@@ -105,7 +97,6 @@ public class PlaceBidHandler : ICommandHandler<PlaceBidCommand, BidResponseDto>
         {
             await transaction.RollbackAsync(cancellationToken);
 
-            // AUDITORÍA OBLIGATORIA: Intento de puja rechazado por validación crítica
             await RegistrarAuditoriaFalloAsync(
                 command.AuctionId,
                 command.BuyerId,
@@ -117,7 +108,6 @@ public class PlaceBidHandler : ICommandHandler<PlaceBidCommand, BidResponseDto>
             throw;
         }
 
-        // 8. Notificar en tiempo real una vez completada la transacción
         await _notificationService.NotifyNewBidAsync(command.AuctionId, command.Amount, command.BuyerId, cancellationToken);
 
         if (extended)

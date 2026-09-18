@@ -21,6 +21,7 @@ const LiveBiddingRoom = ({ wallet }) => {
   const [bidsHistory, setBidsHistory] = useState([]);
   const [latestBidderId, setLatestBidderId] = useState(null);
   const [isBidding, setIsBidding] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   // Consola de puja
   const { imageUrl, title, description, categoryName, minIncrement, status } = auction || {};
@@ -297,15 +298,19 @@ const LiveBiddingRoom = ({ wallet }) => {
       {/* COLUMNA IZQUIERDA: Detalle e Historial */}
       <div className="lg:col-span-8 flex flex-col gap-6">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="relative h-96 w-full bg-gray-100">
-            <img 
-              src={imageUrl || 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=800&q=80'} 
-              alt={title} 
-              onError={(e) => {
-                e.currentTarget.src = 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=800&q=80';
-              }}
-              className="w-full h-full object-cover"
-            />
+          <div className="relative h-96 w-full bg-white flex items-center justify-center">
+            {imageUrl && !imageError ? (
+              <img 
+                src={imageUrl} 
+                alt={title} 
+                onError={() => setImageError(true)}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-white">
+                <span className="text-4xl font-bold text-blue-600 tracking-wider">Subasta Ya</span>
+              </div>
+            )}
             <span className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-4 py-2 rounded-lg text-sm font-bold text-gray-800 shadow-sm uppercase tracking-wider">
               {categoryName}
             </span>

@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import useCountdown from '../hooks/useCountdown';
 
 const AuctionCard = ({ subasta }) => {
+  const [imageError, setImageError] = React.useState(false);
   const { id, imageUrl, title, categoryName, currentPrice, totalBids } = subasta;
   
   // 1. Estado Derivado Robusto (Solución a discrepancia de contratos)
@@ -27,6 +28,9 @@ const AuctionCard = ({ subasta }) => {
   }
 
   const isEnded = finalStatus === 'FINALIZADA' || finalStatus === 'DESIERTA';
+  
+  // ALERTA DE ZONA CRÍTICA: Último minuto (60 segs) de una subasta activa
+  const isCriticalTime = finalStatus === 'ACTIVA' && timeLeft <= 60 && timeLeft > 0;
 
   const formatTime = (seconds) => {
     if (seconds <= 0) return '00:00:00';
@@ -81,12 +85,19 @@ const AuctionCard = ({ subasta }) => {
       <div className={`flex flex-col bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-shadow duration-300 h-full ${finalStatus === 'PROGRAMADA' ? '' : 'hover:shadow-lg cursor-pointer'}`}>
         
         {/* Mitad superior: Imagen y Categoría (Badge flotante) */}
-        <div className="relative h-56 w-full bg-gray-100">
-          <img 
-            src={imageUrl || 'https://via.placeholder.com/400x300?text=Subasta+Sin+Imagen'} 
-            alt={title} 
-            className={`w-full h-full object-cover ${isDisabled ? 'opacity-75' : ''}`}
-          />
+        <div className="relative h-56 w-full bg-white flex items-center justify-center">
+          {imageUrl && !imageError ? (
+            <img 
+              src={imageUrl} 
+              alt={title} 
+              onError={() => setImageError(true)}
+              className={`w-full h-full object-cover ${isDisabled ? 'opacity-75' : ''}`}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-white">
+              <span className="text-2xl font-bold text-blue-600 tracking-wider">Subasta Ya</span>
+            </div>
+          )}
           <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg text-xs font-bold text-gray-800 shadow-sm uppercase tracking-wider">
             {categoryName}
           </span>
@@ -115,13 +126,17 @@ const AuctionCard = ({ subasta }) => {
           </div>
           
           {/* Pie de la tarjeta: Contador Regresivo */}
-          <div className="bg-gray-50 p-2 rounded-lg text-center mt-3 border border-gray-100">
+          <div className={`p-2 rounded-lg text-center mt-3 border ${
+            isCriticalTime 
+              ? 'bg-red-50 border-red-200 text-red-600 font-bold animate-pulse' 
+              : 'bg-gray-50 border-gray-100 text-gray-700 font-medium'
+          }`}>
             {isEnded ? (
               <div className="font-mono font-bold text-sm text-gray-500">
                 Subasta Finalizada
               </div>
             ) : (
-              <div className={`flex items-center justify-center gap-2 font-mono font-semibold text-sm ${isScheduled ? 'text-blue-700' : 'text-green-600'}`}>
+              <div className={`flex items-center justify-center gap-2 font-mono text-sm ${isCriticalTime ? '' : (isScheduled ? 'text-blue-700 font-semibold' : '')}`}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="10"></circle>
                   <polyline points="12 6 12 12 16 14"></polyline>

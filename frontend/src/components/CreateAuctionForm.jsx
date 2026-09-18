@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import apiClient from '../apiClient';
 
-const CreateAuctionForm = () => {
+const CreateAuctionForm = ({ onAuctionCreated }) => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     titulo: '',
     descripcion: '',
@@ -77,17 +79,11 @@ const CreateAuctionForm = () => {
       await apiClient.post('/auctions', payload);
       toast.success('Subasta publicada con éxito');
       
-      // Limpiar formulario tras éxito
-      setFormData({
-        titulo: '',
-        descripcion: '',
-        imagen: '',
-        categoriaId: '',
-        precio_base: 0,
-        incremento_minimo: 0,
-        fecha_inicio: '',
-        fecha_fin: ''
-      });
+      if (onAuctionCreated) {
+        onAuctionCreated();
+      }
+      
+      navigate('/');
     } catch (error) {
       console.error('Error al crear subasta:', error);
     } finally {

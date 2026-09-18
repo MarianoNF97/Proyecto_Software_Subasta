@@ -17,7 +17,7 @@ public static class DbInitializer
 
         var ahoraUtc = DateTime.UtcNow;
 
-        // 1. Usuarios en ASP.NET Identity
+        // 1. Usuarios en ASP.NET Identity (Consigna: 4 usuarios obligatorios)
         var testUsers = new[]
         {
             new { Id = 1, Email = "vendedor@test.com", Nombre = "Vendedor Test" },
@@ -63,7 +63,7 @@ public static class DbInitializer
                 await context.SaveChangesAsync();
                 await context.Database.ExecuteSqlRawAsync("SET IDENTITY_INSERT USUARIO OFF");
 
-                // 2. Categorías
+                // 2. Categorías obligatorias
                 var categorias = new List<Categoria>
                 {
                     new() { id = 1, nombre = "Tecnología", url_icono = "/icons/tech.png" },
@@ -76,7 +76,7 @@ public static class DbInitializer
                 await context.SaveChangesAsync();
                 await context.Database.ExecuteSqlRawAsync("SET IDENTITY_INSERT CATEGORIA OFF");
 
-                // 3. Billeteras
+                // 3. Billeteras con saldos iniciales exactos
                 var billeteras = new List<Billetera>
                 {
                     new() { id = 1, usuario_id = 1, saldo_total = 0m, saldo_retenido = 0m },
@@ -89,10 +89,10 @@ public static class DbInitializer
                 await context.SaveChangesAsync();
                 await context.Database.ExecuteSqlRawAsync("SET IDENTITY_INSERT BILLETERA OFF");
 
-                // 4. Subastas con imágenes reales directas
+                // 4. Las 5 Subastas obligatorias (Casos de prueba de la cátedra)
                 var subastas = new List<Subasta>
                 {
-                    // ID 1: iPhone 13 Pro
+                    // Caso 1: Activa estándar (Cierra en 20-30 min con 2 ofertas previas)
                     new()
                     {
                         id = 1,
@@ -104,10 +104,10 @@ public static class DbInitializer
                         precio_base = 30000m,
                         incremento_minimo = 5000m,
                         fecha_inicio = ahoraUtc.AddHours(-2),
-                        fecha_fin = ahoraUtc.AddDays(1),
+                        fecha_fin = ahoraUtc.AddMinutes(25), 
                         estado = AuctionConstants.ESTADO_ACTIVA
                     },
-                    // ID 2: Figura Coleccionable
+                    // Caso 2: Activa crítica 
                     new()
                     {
                         id = 2,
@@ -119,28 +119,13 @@ public static class DbInitializer
                         precio_base = 10000m,
                         incremento_minimo = 1000m,
                         fecha_inicio = ahoraUtc.AddHours(-1),
-                        fecha_fin = ahoraUtc.AddMinutes(2),
+                        fecha_fin = ahoraUtc.AddMinutes(1).AddSeconds(50), 
                         estado = AuctionConstants.ESTADO_ACTIVA
                     },
-                    // ID 3: Campera Vintage
+                    // Caso 3: Próxima 
                     new()
                     {
                         id = 3,
-                        vendedor_id = 1,
-                        categoria_id = 3,
-                        titulo = "Campera de Cuero Vintage",
-                        descripcion = "Campera de cuero vintage auténtica, talle L. Excelente estado.",
-                        url_imagen = "https://images.unsplash.com/photo-1521223890158-f9f7c3d5d504?auto=format&fit=crop&w=800&q=80",
-                        precio_base = 20000m,
-                        incremento_minimo = 2000m,
-                        fecha_inicio = ahoraUtc.AddHours(-1),
-                        fecha_fin = ahoraUtc.AddDays(2),
-                        estado = AuctionConstants.ESTADO_ACTIVA
-                    },
-                    // ID 4: Moto Scooter 125cc
-                    new()
-                    {
-                        id = 4,
                         vendedor_id = 1,
                         categoria_id = 4,
                         titulo = "Moto Scooter 125cc",
@@ -148,11 +133,26 @@ public static class DbInitializer
                         url_imagen = "https://corrientesmotos.com.ar/wp-content/uploads/2020/11/1.png",
                         precio_base = 100000m,
                         incremento_minimo = 1000m,
-                        fecha_inicio = ahoraUtc.AddHours(24),
+                        fecha_inicio = ahoraUtc.AddHours(24), 
                         fecha_fin = ahoraUtc.AddDays(3),
                         estado = AuctionConstants.ESTADO_PROGRAMADA
                     },
-                    // ID 5: Monitor Gamer 144Hz
+                    // Caso 4: Vencida con ganador 
+                    new()
+                    {
+                        id = 4,
+                        vendedor_id = 1,
+                        categoria_id = 3,
+                        titulo = "Campera de Cuero Vintage",
+                        descripcion = "Campera de cuero vintage auténtica, talle L. Excelente estado.",
+                        url_imagen = "https://images.unsplash.com/photo-1521223890158-f9f7c3d5d504?auto=format&fit=crop&w=800&q=80",
+                        precio_base = 20000m,
+                        incremento_minimo = 2000m,
+                        fecha_inicio = ahoraUtc.AddDays(-2),
+                        fecha_fin = ahoraUtc.AddHours(-1), 
+                        estado = "FINALIZADA"
+                    },
+                    // Caso 5: Vencida desierta 
                     new()
                     {
                         id = 5,
@@ -164,7 +164,7 @@ public static class DbInitializer
                         precio_base = 50000m,
                         incremento_minimo = 5000m,
                         fecha_inicio = ahoraUtc.AddDays(-2),
-                        fecha_fin = ahoraUtc.AddHours(-1),
+                        fecha_fin = ahoraUtc.AddHours(-1), 
                         estado = "DESIERTA"
                     }
                 };
@@ -173,7 +173,7 @@ public static class DbInitializer
                 await context.SaveChangesAsync();
                 await context.Database.ExecuteSqlRawAsync("SET IDENTITY_INSERT SUBASTA OFF");
 
-                // 5. Pujas iniciales
+                // 5. Historial de las 2 ofertas previas en la subasta activa
                 var pujas = new List<Puja>
                 {
                     new() { id = 1, subasta_id = 1, comprador_id = 3, monto = 35000m, fecha_puja = ahoraUtc.AddMinutes(-40) },
@@ -184,7 +184,7 @@ public static class DbInitializer
                 await context.SaveChangesAsync();
                 await context.Database.ExecuteSqlRawAsync("SET IDENTITY_INSERT PUJA OFF");
 
-                // 6. Transacciones Ledger
+                // 6. Transacciones 
                 var transacciones = new List<TransaccionLedger>
                 {
                     new() { id = 1, billetera_id = 2, tipo = TransactionConstants.TIPO_DEPOSITO, monto = 150000m, fecha = ahoraUtc.AddDays(-1) },

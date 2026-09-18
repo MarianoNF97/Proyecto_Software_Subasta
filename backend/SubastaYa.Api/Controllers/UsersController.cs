@@ -12,23 +12,30 @@ namespace SubastaYa.Api.Controllers;
 [Route("api/[controller]")]
 public class UsersController : ControllerBase
 {
+    private readonly GetUserPurchasesHandler _purchasesHandler;
+    private readonly GetUserAuctionsHandler _auctionsHandler;
+
+    public UsersController(
+        GetUserPurchasesHandler purchasesHandler,
+        GetUserAuctionsHandler auctionsHandler)
+    {
+        _purchasesHandler = purchasesHandler;
+        _auctionsHandler = auctionsHandler;
+    }
+
     [HttpGet("my-purchases")]
-    public async Task<ActionResult<IEnumerable<AuctionResponseDto>>> GetMyPurchases(
-        [FromServices] GetUserPurchasesHandler handler,
-        CancellationToken cancellationToken)
+    public async Task<ActionResult<IEnumerable<AuctionResponseDto>>> GetMyPurchases(CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
-        var result = await handler.HandleAsync(new GetUserPurchasesQuery(userId), cancellationToken);
+        var result = await _purchasesHandler.HandleAsync(new GetUserPurchasesQuery(userId), cancellationToken);
         return Ok(result);
     }
 
     [HttpGet("my-auctions")]
-    public async Task<ActionResult<IEnumerable<AuctionResponseDto>>> GetMyAuctions(
-        [FromServices] GetUserAuctionsHandler handler,
-        CancellationToken cancellationToken)
+    public async Task<ActionResult<IEnumerable<AuctionResponseDto>>> GetMyAuctions(CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
-        var result = await handler.HandleAsync(new GetUserAuctionsQuery(userId), cancellationToken);
+        var result = await _auctionsHandler.HandleAsync(new GetUserAuctionsQuery(userId), cancellationToken);
         return Ok(result);
     }
 

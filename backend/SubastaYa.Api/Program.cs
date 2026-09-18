@@ -10,6 +10,7 @@ using SubastaYa.Application.Common.Interfaces;
 using SubastaYa.Application.Features.Auctions.Commands.Handlers;
 using SubastaYa.Application.Features.Auctions.Queries.Handlers;
 using SubastaYa.Application.Features.Categories.Queries.Handlers;
+using SubastaYa.Application.Features.Users.Queries.Handlers;
 using SubastaYa.Application.Features.Wallets.Commands.Handlers;
 using SubastaYa.Application.Features.Wallets.Queries.Handlers;
 using SubastaYa.Application.Interfaces.Repositories;
@@ -133,6 +134,8 @@ builder.Services.AddScoped<ActivateScheduledAuctionsHandler>();
 builder.Services.AddScoped<GetWalletBalanceHandler>();
 builder.Services.AddScoped<GetWalletTransactionsHandler>();
 builder.Services.AddScoped<DepositFundsHandler>();
+builder.Services.AddScoped<GetUserPurchasesHandler>();
+builder.Services.AddScoped<GetUserAuctionsHandler>();
 
 // Background Workers
 builder.Services.AddHostedService<AuctionClosingWorker>();
@@ -243,7 +246,6 @@ app.MapControllers();
 app.MapHub<AuctionHub>("/auctionHub");
 
 await app.RunAsync();
-
 
 public class UtcDateTimeJsonConverter : JsonConverter<DateTime>
 {

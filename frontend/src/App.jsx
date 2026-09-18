@@ -9,6 +9,7 @@ import TransactionHistory from './components/TransactionHistory';
 import AuctionCard from './components/AuctionCard';
 import CreateAuctionForm from './components/CreateAuctionForm';
 import LiveBiddingRoom from './components/LiveBiddingRoom';
+import UserDashboard from './components/UserDashboard';
 
 import ProtectedRoute from './components/ProtectedRoute';
 import MainLayout from './components/MainLayout';
@@ -227,6 +228,12 @@ function App() {
               <Route path="/publicar" element={
                 <section className="flex justify-center">
                   <CreateAuctionForm />
+                </section>
+              } />
+
+              <Route path="/mis-actividades" element={
+                <section>
+                  <UserDashboard />
                 </section>
               } />
 

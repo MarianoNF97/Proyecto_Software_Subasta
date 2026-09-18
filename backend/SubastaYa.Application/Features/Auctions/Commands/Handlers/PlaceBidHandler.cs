@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SubastaYa.Application.Common.Interfaces;
 using SubastaYa.Application.DTOs;
@@ -19,6 +20,7 @@ public class PlaceBidHandler : ICommandHandler<PlaceBidCommand, BidResponseDto>
     private readonly IBidPaymentService _bidPaymentService;
     private readonly IAntiSnipingService _antiSnipingService;
     private readonly IAuctionNotificationService _notificationService;
+    private readonly IAuditLogRepository _auditLogRepository;
     private readonly IUnitOfWork _unitOfWork;
 
     public PlaceBidHandler(
@@ -28,6 +30,7 @@ public class PlaceBidHandler : ICommandHandler<PlaceBidCommand, BidResponseDto>
         IBidPaymentService bidPaymentService,
         IAntiSnipingService antiSnipingService,
         IAuctionNotificationService notificationService,
+        IAuditLogRepository auditLogRepository,
         IUnitOfWork unitOfWork)
     {
         _auctionRepository = auctionRepository;
@@ -36,6 +39,7 @@ public class PlaceBidHandler : ICommandHandler<PlaceBidCommand, BidResponseDto>
         _bidPaymentService = bidPaymentService;
         _antiSnipingService = antiSnipingService;
         _notificationService = notificationService;
+        _auditLogRepository = auditLogRepository;
         _unitOfWork = unitOfWork;
     }
 
@@ -52,7 +56,7 @@ public class PlaceBidHandler : ICommandHandler<PlaceBidCommand, BidResponseDto>
             var subasta = await _auctionRepository.GetByIdWithBidsAsync(command.AuctionId, cancellationToken)
                 ?? throw new NotFoundException($"No se encontró la subasta con ID {command.AuctionId}.");
 
-            // 2. Validar reglas de negocio y saldo disponible
+            // 2. Validar reglas de negocio y saldo disponible (si falla, salta al catch)
             await _bidValidationService.ValidateBidAsync(command.AuctionId, command.BuyerId, command.Amount, cancellationToken);
 
             // 3. Procesar retención en escrow y liberación del postor previo
@@ -68,11 +72,10 @@ public class PlaceBidHandler : ICommandHandler<PlaceBidCommand, BidResponseDto>
             };
             _bidRepository.Add(newBid);
 
-            // 5. Aplicar regla anti-sniping si corresponde
+            // 5. Aplicar regla anti-sniping (el servicio registra internamente la auditoría EXTENSION_TIEMPO)
             extended = _antiSnipingService.ApplyAntiSnipingRule(subasta, command.BuyerId, ahoraUtc);
 
-            // 6. Concurrencia Optimista:
-            
+            // 6. Concurrencia Optimista
             if (!extended)
             {
                 subasta.fecha_fin = subasta.fecha_fin.AddMilliseconds(1);
@@ -86,11 +89,31 @@ public class PlaceBidHandler : ICommandHandler<PlaceBidCommand, BidResponseDto>
         catch (DbUpdateConcurrencyException)
         {
             await transaction.RollbackAsync(cancellationToken);
+
+            // AUDITORÍA OBLIGATORIA: Intento de puja rechazado por concurrencia
+            await RegistrarAuditoriaFalloAsync(
+                command.AuctionId,
+                command.BuyerId,
+                command.Amount,
+                "PUJA_RECHAZADA_CONCURRENCIA",
+                "Conflicto de concurrencia optimista al procesar la oferta simultánea.",
+                cancellationToken);
+
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             await transaction.RollbackAsync(cancellationToken);
+
+            // AUDITORÍA OBLIGATORIA: Intento de puja rechazado por validación crítica
+            await RegistrarAuditoriaFalloAsync(
+                command.AuctionId,
+                command.BuyerId,
+                command.Amount,
+                "PUJA_RECHAZADA_VALIDACION",
+                ex.Message,
+                cancellationToken);
+
             throw;
         }
 
@@ -112,5 +135,38 @@ public class PlaceBidHandler : ICommandHandler<PlaceBidCommand, BidResponseDto>
             TimeExtended = extended,
             NewEndDate = DateTime.SpecifyKind(newEndDate, DateTimeKind.Utc)
         };
+    }
+
+    private async Task RegistrarAuditoriaFalloAsync(
+        int subastaId,
+        int usuarioId,
+        decimal monto,
+        string accion,
+        string motivoError,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var auditLog = new AuditoriaLog
+            {
+                entidad = "SUBASTA",
+                entidad_id = subastaId,
+                accion = accion,
+                usuario_id = usuarioId,
+                detalle_json = JsonSerializer.Serialize(new
+                {
+                    monto_intentado = monto,
+                    error = motivoError
+                }),
+                fecha = DateTime.UtcNow
+            };
+
+            _auditLogRepository.Add(auditLog);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception logEx)
+        {
+            Console.WriteLine($"[Audit Warning] No se pudo persistir el log de rechazo: {logEx.Message}");
+        }
     }
 }

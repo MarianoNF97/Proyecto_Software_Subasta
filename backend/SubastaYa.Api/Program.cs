@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -25,17 +25,16 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using SubastaYa.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Cadena de conexión y DbContext
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Cadena de conexión 'DefaultConnection' no encontrada.");
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 
-// 1. ASP.NET Core Identity
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
 {
     options.Password.RequireDigit = false;
@@ -50,10 +49,8 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
-// 2. Desactivar mapeo automático de claims
 JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 
-// 3. Autenticación JWT
 var jwtSection = builder.Configuration.GetSection("JwtSettings");
 var secret = jwtSection["Secret"];
 
@@ -103,7 +100,6 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
-// Inyección de Repositorios y Unit of Work
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IAuctionRepository, AuctionRepository>();
 builder.Services.AddScoped<IBidRepository, BidRepository>();
@@ -112,7 +108,6 @@ builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
-// Inyección de Servicios de Dominio y Aplicación
 builder.Services.AddScoped<IBidWinnerService, BidWinnerService>();
 builder.Services.AddScoped<IBidValidationService, BidValidationService>();
 builder.Services.AddScoped<IBidPaymentService, BidPaymentService>();
@@ -123,7 +118,6 @@ builder.Services.AddScoped<IAuctionSettlementService, AuctionSettlementService>(
 builder.Services.AddScoped<IAuctionAuditService, AuctionAuditService>();
 builder.Services.AddScoped<IAuctionActivationService, AuctionActivationService>();
 
-// Inyección de Handlers CQRS
 builder.Services.AddScoped<GetAuctionsHandler>();
 builder.Services.AddScoped<GetAuctionByIdHandler>();
 builder.Services.AddScoped<CreateAuctionHandler>();
@@ -137,13 +131,12 @@ builder.Services.AddScoped<DepositFundsHandler>();
 builder.Services.AddScoped<GetUserPurchasesHandler>();
 builder.Services.AddScoped<GetUserAuctionsHandler>();
 
-// Background Workers
 builder.Services.AddHostedService<AuctionClosingWorker>();
 builder.Services.AddHostedService<AuctionActivationWorker>();
 
 builder.Services.AddScoped<IAuctionNotificationService, AuctionNotificationService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
-// Controladores con formateo estricto de DateTime en UTC (ISO 8601 con 'Z')
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -169,7 +162,6 @@ builder.Services.AddControllers()
         };
     });
 
-// SignalR con formateo estricto de DateTime en UTC
 builder.Services.AddSignalR()
     .AddJsonProtocol(options =>
     {

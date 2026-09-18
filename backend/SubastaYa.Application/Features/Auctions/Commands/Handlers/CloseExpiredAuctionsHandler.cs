@@ -6,10 +6,6 @@ using SubastaYa.Application.Services;
 
 namespace SubastaYa.Application.Features.Auctions.Commands.Handlers;
 
-/// <summary>
-/// Handler responsable ÚNICAMENTE de orquestar el cierre de subastas expiradas.
-/// Delega toda la lógica al servicio especializado.
-/// </summary>
 public class CloseExpiredAuctionsHandler : ICommandHandler<CloseExpiredAuctionsCommand, int>
 {
     private readonly IAuctionClosureService _auctionClosureService;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import apiClient from '../apiClient';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
@@ -24,17 +24,13 @@ const DepositForm = ({ onDepositSuccess }) => {
       await apiClient.post('/wallets/deposit', { userId: userId, amount: parsedAmount });
       
       toast.success('Depósito realizado con éxito');
-      setAmount(''); // Limpiar el input al resolverse la petición
-      if (onDepositSuccess) {
+      setAmount('');      if (onDepositSuccess) {
         onDepositSuccess();
       }
     } catch (error) {
-      // El interceptor de apiClient ya maneja el toast de error para 400, 404, 409
-      // No necesitamos hacer nada adicional aquí a menos que queramos
       console.error('Error al realizar el depósito:', error);
     } finally {
-      setIsLoading(false); // Rehabilitar botón / ocultar spinner
-    }
+      setIsLoading(false);    }
   };
 
   return (
@@ -71,7 +67,7 @@ const DepositForm = ({ onDepositSuccess }) => {
         >
           {isLoading ? (
             <>
-              {/* Spinner */}
+              {}
               <svg 
                 className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" 
                 xmlns="http://www.w3.org/2000/svg" 

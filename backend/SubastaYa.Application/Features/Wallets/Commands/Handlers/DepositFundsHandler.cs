@@ -5,10 +5,6 @@ using SubastaYa.Application.Services;
 
 namespace SubastaYa.Application.Features.Wallets.Commands.Handlers;
 
-/// <summary>
-/// Handler responsable ÚNICAMENTE de orquestar depósitos de fondos.
-/// Delega toda la lógica al servicio especializado.
-/// </summary>
 public class DepositFundsHandler : ICommandHandler<DepositFundsCommand, bool>
 {
     private readonly IDepositService _depositService;

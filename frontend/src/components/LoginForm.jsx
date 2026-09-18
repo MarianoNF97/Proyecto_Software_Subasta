@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import apiClient from '../apiClient';
 import { toast } from 'sonner';
@@ -21,25 +21,20 @@ const LoginForm = () => {
     setIsLoading(true);
 
     try {
-      // Usamos el cliente configurado, que ya resuelve el baseUrl
       const response = await apiClient.post('/auth/login', {
         email: email,
         password: password
       });
 
-      // Se asume que el backend retorna { token: "..." }
       const token = response.data?.token || response.data?.Token;
       
       if (token) {
         login(token);
         toast.success('¡Sesión iniciada con éxito!');
-        navigate('/'); // Redirige al inicio
-      } else {
+        navigate('/');      } else {
         toast.error('El servidor no retornó un token válido.');
       }
     } catch (error) {
-      // El interceptor en apiClient ya muestra un toast para 400, 401, etc.
-      // Pero podemos manejar un error específico de login si lo deseamos.
       console.error('Error durante el login:', error);
     } finally {
       setIsLoading(false);

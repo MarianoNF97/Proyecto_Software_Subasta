@@ -23,10 +23,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // 1. Configuración interna base de Identity
         base.OnModelCreating(modelBuilder);
 
-        // 2. Personalización de tablas de Identity 
         modelBuilder.Entity<ApplicationUser>().ToTable("IDENTITY_USUARIOS");
         modelBuilder.Entity<IdentityRole<int>>().ToTable("IDENTITY_ROLES");
         modelBuilder.Entity<IdentityUserRole<int>>().ToTable("IDENTITY_USUARIO_ROLES");
@@ -35,7 +33,6 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
         modelBuilder.Entity<IdentityRoleClaim<int>>().ToTable("IDENTITY_ROL_CLAIMS");
         modelBuilder.Entity<IdentityUserToken<int>>().ToTable("IDENTITY_USUARIO_TOKENS");
 
-        // 3. Mapeo de tablas de dominio
         modelBuilder.Entity<Usuario>().ToTable("USUARIO");
         modelBuilder.Entity<Billetera>().ToTable("BILLETERA");
         modelBuilder.Entity<Categoria>().ToTable("CATEGORIA");
@@ -44,7 +41,6 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
         modelBuilder.Entity<TransaccionLedger>().ToTable("TRANSACCION_LEDGER");
         modelBuilder.Entity<AuditoriaLog>().ToTable("AUDITORIA_LOG");
 
-        // 4. Precisiones numéricas monetarias (decimal 18,2)
         modelBuilder.Entity<Billetera>().Property(b => b.saldo_total).HasPrecision(18, 2);
         modelBuilder.Entity<Billetera>().Property(b => b.saldo_retenido).HasPrecision(18, 2);
         modelBuilder.Entity<Subasta>().Property(s => s.precio_base).HasPrecision(18, 2);
@@ -52,17 +48,14 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
         modelBuilder.Entity<Puja>().Property(p => p.monto).HasPrecision(18, 2);
         modelBuilder.Entity<TransaccionLedger>().Property(t => t.monto).HasPrecision(18, 2);
 
-        // 5. Columna calculada: saldo_disponible = saldo_total - saldo_retenido
         modelBuilder.Entity<Billetera>()
             .Property(b => b.saldo_disponible)
             .HasPrecision(18, 2)
             .HasComputedColumnSql("[saldo_total] - [saldo_retenido]", stored: true);
 
-        // 6. Control de concurrencia optimista (RowVersion / Timestamp)
         modelBuilder.Entity<Billetera>().Property(b => b.version).IsRowVersion();
         modelBuilder.Entity<Subasta>().Property(s => s.version).IsRowVersion();
 
-        // 7. Relaciones de Dominio y claves foráneas
         modelBuilder.Entity<Usuario>()
             .HasOne(u => u.Billetera)
             .WithOne(b => b.Usuario)
@@ -113,9 +106,5 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
             .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // 8. Sembradura de datos
-        // Se comenta HasData() para que las fechas no queden congeladas en las migraciones.
-        // El sembrado dinámico en arranque se realiza mediante DbInitializer.SeedAsync(context).
-        // DatabaseSeeder.Seed(modelBuilder);
     }
 }

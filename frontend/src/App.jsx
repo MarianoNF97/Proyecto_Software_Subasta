@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
 import { Toaster } from 'sonner';
@@ -47,9 +47,6 @@ function App() {
     }
   }, [user?.id]);
 
-  // ==========================================
-  // ESCUCHA GLOBAL DE SIGNALR (Billetera en vivo)
-  // ==========================================
   useEffect(() => {
     if (!user?.id) return;
 
@@ -63,7 +60,6 @@ function App() {
 
     connection.start()
       .then(() => {
-        // Escucha el evento emitido cuando se retienen o liberan fondos
         connection.on('WalletUpdated', () => {
           fetchMetrics();
         });
@@ -79,11 +75,9 @@ function App() {
   const [isLoadingAuctions, setIsLoadingAuctions] = useState(true);
   const [categories, setCategories] = useState([]);
   
-  // Estados de filtros locales
   const [statusFilter, setStatusFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [sortConfig, setSortConfig] = useState(''); // 'menor-tiempo', 'mayor-puja', 'menor-puja'
-  const [minPrice, setMinPrice] = useState('');
+  const [sortConfig, setSortConfig] = useState('');  const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
 
   const fetchAuctions = async () => {
@@ -119,7 +113,6 @@ function App() {
   const filteredAndSortedAuctions = React.useMemo(() => {
     let result = [...auctions];
 
-    // 1. Filtro por Estado
     if (statusFilter) {
       if (statusFilter === 'FINALIZADA') {
         result = result.filter(a => {
@@ -131,12 +124,10 @@ function App() {
       }
     }
 
-    // 2. Filtro por Categoría
     if (categoryFilter) {
       result = result.filter(a => a.categoryId?.toString() === categoryFilter.toString() || a.categoriaId?.toString() === categoryFilter.toString());
     }
 
-    // 3. Filtro por Rango de Precio
     const minVal = minPrice !== '' ? Number(minPrice) : null;
     const maxVal = maxPrice !== '' ? Number(maxPrice) : null;
 
@@ -148,7 +139,6 @@ function App() {
       result = result.filter(a => (a.currentPrice ?? a.precioActual ?? a.startingPrice ?? a.precioBase ?? 0) <= maxVal);
     }
 
-    // 4. Ordenamiento
     if (sortConfig === 'menor-tiempo') {
       result.sort((a, b) => {
         const dateA = new Date(a.endDate || a.fechaFin).getTime();
@@ -168,25 +158,25 @@ function App() {
     <>
       <BrowserRouter>
         <Routes>
-          {/* Rutas Públicas */}
+          {}
           <Route path="/login" element={<LoginForm />} />
           <Route path="/register" element={<RegisterForm />} />
 
-          {/* Rutas dentro de MainLayout */}
+          {}
           <Route element={<MainLayout />}>
             
             <Route path="/" element={
               <div className="flex flex-col gap-8 mt-4">
-                {/* Estructura Principal del Encabezado */}
+                {}
                 <div className="flex flex-col xl:flex-row justify-between items-start mb-8 gap-6">
                   
-                  {/* Bloque Izquierdo (Título) */}
+                  {}
                   <h1 className="text-3xl font-bold text-gray-900">Catálogo de Subastas</h1>
                   
-                  {/* Bloque Derecho (Agrupación de Controles en 2 Filas) */}
+                  {}
                   <div className="flex flex-col gap-3 w-full xl:w-auto xl:items-end">
                     
-                    {/* Fila 1 (Filtros Principales) */}
+                    {}
                     <div className="flex flex-wrap items-center gap-4">
                       <div className="flex rounded-md shadow-sm" role="group">
                         <button
@@ -233,7 +223,7 @@ function App() {
                       </select>
                     </div>
 
-                    {/* Fila 2 (Filtros Secundarios) */}
+                    {}
                     <div className="flex flex-wrap items-center xl:justify-end gap-3">
                       <select
                         className="text-sm py-1.5 px-3 bg-white border border-gray-200 rounded-md shadow-sm text-gray-600 outline-none focus:ring-2 focus:ring-blue-500"
@@ -292,7 +282,7 @@ function App() {
               </section>
             } />
 
-            {/* Rutas Protegidas */}
+            {}
             <Route element={<ProtectedRoute />}>
               
               <Route path="/billetera" element={
@@ -304,7 +294,7 @@ function App() {
                     <DepositForm onDepositSuccess={fetchMetrics} />
                   </section>
                   <section>
-                    {/* El key dinámico fuerza a TransactionHistory a recargar sus movimientos al variar el saldo */}
+                    {}
                     <TransactionHistory key={`${metrics.availableBalance}-${metrics.lockedBalance}`} />
                   </section>
                 </div>

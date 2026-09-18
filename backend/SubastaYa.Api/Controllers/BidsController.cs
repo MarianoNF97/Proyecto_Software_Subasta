@@ -32,7 +32,6 @@ public class BidsController : ControllerBase
 
         var result = await handler.HandleAsync(command, cancellationToken);
 
-        // Notifica en tiempo real a los clientes conectados para refrescar sus saldos
         await _hubContext.Clients.All.SendAsync("WalletUpdated", cancellationToken);
 
         return Ok(result);

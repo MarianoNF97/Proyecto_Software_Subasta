@@ -1,13 +1,9 @@
-using SubastaYa.Application.Interfaces.Repositories;
+ï»¿using SubastaYa.Application.Interfaces.Repositories;
 using SubastaYa.Domain.Constants;
 using SubastaYa.Domain.Entities;
 
 namespace SubastaYa.Application.Services;
 
-/// <summary>
-/// Implementación del servicio de pago de pujas.
-/// Responsabilidad única: gestionar débitos y créditos de fondos para pujas.
-/// </summary>
 public class BidPaymentService : IBidPaymentService
 {
     private readonly IAuctionRepository _auctionRepository;
@@ -36,7 +32,6 @@ public class BidPaymentService : IBidPaymentService
         var ahoraUtc = DateTime.UtcNow;
         var highestBid = _bidWinnerService.GetWinningBid(subasta.Pujas);
 
-        // 1. Liberar saldo del postor anterior si existe
         if (highestBid != null)
         {
             var previousBuyerWallet = await _walletRepository.GetByUserIdAsync(highestBid.comprador_id, cancellationToken);
@@ -56,7 +51,6 @@ public class BidPaymentService : IBidPaymentService
             }
         }
 
-        // 2. Retener saldo del nuevo postor
         var buyerWallet = await _walletRepository.GetByUserIdAsync(newBidderId, cancellationToken);
         if (buyerWallet != null)
         {

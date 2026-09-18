@@ -13,7 +13,6 @@ public class Billetera
     [Timestamp]
     public byte[] version { get; set; } = Array.Empty<byte>();
 
-    // Relaciones
     public Usuario Usuario { get; set; } = null!;
     public ICollection<TransaccionLedger> Transacciones { get; set; } = new List<TransaccionLedger>();
 }

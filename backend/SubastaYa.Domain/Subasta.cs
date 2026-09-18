@@ -14,12 +14,10 @@ public class Subasta
     public decimal incremento_minimo { get; set; }
     public DateTime fecha_inicio { get; set; }
     public DateTime fecha_fin { get; set; }
-    public string estado { get; set; } = "PROGRAMADA"; // POR DEFAULT ESTA EN ESTADO PROGRAMADA, SE CAMBIA A EN_CURSO CUANDO SE INICIA LA SUBASTA Y A FINALIZADA CUANDO SE TERMINA
-
+    public string estado { get; set; } = "PROGRAMADA";
     [Timestamp]
     public byte[] version { get; set; } = Array.Empty<byte>();
 
-    // Relaciones
     public Usuario Vendedor { get; set; } = null!;
     public Categoria Categoria { get; set; } = null!;
     public ICollection<Puja> Pujas { get; set; } = new List<Puja>();

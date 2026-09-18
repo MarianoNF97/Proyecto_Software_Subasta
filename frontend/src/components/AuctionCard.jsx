@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import useCountdown from '../hooks/useCountdown';
@@ -7,21 +7,17 @@ const AuctionCard = ({ subasta }) => {
   const [imageError, setImageError] = React.useState(false);
   const { id, imageUrl, title, categoryName, currentPrice, totalBids } = subasta;
   
-  // 1. Estado Derivado Robusto (Solución a discrepancia de contratos)
   const rawStatus = subasta?.status ?? subasta?.estado ?? subasta?.Status;
   const normalizedStatus = rawStatus?.toUpperCase() || '';
   
-  // 2. Temporizador Dinámico (Solución al Bug de Subastas Programadas)
   const startDate = subasta?.startDate ?? subasta?.fechaInicio;
   const endDate = subasta?.endDate ?? subasta?.fechaFin;
   
   const isScheduled = normalizedStatus === 'PROGRAMADA';
   const targetDate = isScheduled ? startDate : endDate;
   
-  // El hook useCountdown se maneja con la fecha objetivo calculada
   const timeLeft = useCountdown(targetDate);
   
-  // Cierre defensivo: Fuerza FINALIZADA si el tiempo de una ACTIVA llega a 0
   let finalStatus = normalizedStatus;
   if (timeLeft <= 0 && normalizedStatus === 'ACTIVA') {
     finalStatus = 'FINALIZADA';
@@ -29,7 +25,6 @@ const AuctionCard = ({ subasta }) => {
 
   const isEnded = finalStatus === 'FINALIZADA' || finalStatus === 'DESIERTA';
   
-  // ALERTA DE ZONA CRÍTICA: Último minuto (60 segs) de una subasta activa
   const isCriticalTime = finalStatus === 'ACTIVA' && timeLeft <= 60 && timeLeft > 0;
 
   const formatTime = (seconds) => {
@@ -84,7 +79,7 @@ const AuctionCard = ({ subasta }) => {
     >
       <div className={`flex flex-col bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-shadow duration-300 h-full ${finalStatus === 'PROGRAMADA' ? '' : 'hover:shadow-lg cursor-pointer'}`}>
         
-        {/* Mitad superior: Imagen y Categoría (Badge flotante) */}
+        {}
         <div className="relative h-56 w-full bg-white flex items-center justify-center">
           {imageUrl && !imageError ? (
             <img 
@@ -104,7 +99,7 @@ const AuctionCard = ({ subasta }) => {
           {getStatusBadge()}
         </div>
 
-        {/* Mitad inferior: Título y Ofertas */}
+        {}
         <div className="flex flex-col p-5 flex-grow">
           <h3 className="text-lg font-bold text-gray-900 line-clamp-2 mb-4 leading-tight">
             {title}
@@ -125,7 +120,7 @@ const AuctionCard = ({ subasta }) => {
             </div>
           </div>
           
-          {/* Pie de la tarjeta: Contador Regresivo */}
+          {}
           <div className={`p-2 rounded-lg text-center mt-3 border ${
             isCriticalTime 
               ? 'bg-red-50 border-red-200 text-red-600 font-bold animate-pulse' 

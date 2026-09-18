@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 
 const WalletMetrics = ({ metrics }) => {
   const { totalBalance, lockedBalance, availableBalance } = metrics || {};
@@ -15,7 +15,7 @@ const WalletMetrics = ({ metrics }) => {
   return (
     <div className="flex flex-col md:flex-row gap-6 w-full max-w-5xl mx-auto p-4">
       
-      {/* Tarjeta 1: Saldo Total */}
+      {}
       <div className="flex-1 bg-white p-6 rounded-2xl shadow-sm flex flex-col justify-center border border-gray-100">
         <span className="text-sm font-medium text-gray-500 mb-1">Saldo Total</span>
         <span className="text-2xl font-semibold text-gray-800">
@@ -23,7 +23,7 @@ const WalletMetrics = ({ metrics }) => {
         </span>
       </div>
 
-      {/* Tarjeta 2: Saldo Retenido */}
+      {}
       <div className="flex-1 bg-white p-6 rounded-2xl shadow-sm flex flex-col justify-center border border-gray-100">
         <div className="flex items-center gap-2 mb-1">
           <svg 
@@ -48,7 +48,7 @@ const WalletMetrics = ({ metrics }) => {
         </span>
       </div>
 
-      {/* Tarjeta 3: Saldo Disponible (Destacada visualmente) */}
+      {}
       <div className="flex-1 bg-green-50 p-6 rounded-2xl shadow-sm flex flex-col justify-center border border-green-100">
         <span className="text-sm font-medium text-green-600 mb-1">Saldo Disponible</span>
         <span className="text-3xl font-bold text-green-700">

@@ -22,6 +22,7 @@ const MainLayout = () => {
               {isAuthenticated && (
                 <>
                   <Link to="/billetera" className="text-gray-700 hover:text-blue-600 font-medium transition-colors">Mi Billetera</Link>
+                  <Link to="/mis-actividades" className="text-gray-700 hover:text-blue-600 font-medium transition-colors">Mis Actividades</Link>
                   <Link to="/publicar" className="text-gray-700 hover:text-blue-600 font-medium transition-colors">Publicar Subasta</Link>
                 </>
               )}
